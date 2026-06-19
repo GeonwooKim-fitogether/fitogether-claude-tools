@@ -1,8 +1,9 @@
 ---
 name: remotion
 description: Guidance for building programmatic videos with Remotion (React-based video framework). Corrects common AI mistakes in animation timing, audio sync, composition structure, and media handling. Use this skill for any Remotion video development task.
+label_ko: 리모션
+summary_ko: React 기반 영상 제작에서 AI가 자주 틀리는 애니메이션 타이밍·싱크 오류를 교정해 줍니다.
 ---
-
 # Remotion — Programmatic Video with React
 
 This skill loads Remotion-specific best practices so Claude generates correct, idiomatic Remotion code. It corrects the animation timing errors, audio sync mistakes, and composition structure issues that AI models commonly produce.

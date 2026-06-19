@@ -1,8 +1,9 @@
 ---
 name: humanizer
 description: Remove AI writing patterns from text and rewrite in a natural, human voice — eliminating the 33+ telltale signs of AI-generated content including em-dash overuse, sycophantic openers, hedge stacking, and manufactured drama. Use this skill when the user wants to make text sound more natural or less AI-generated.
+label_ko: 휴머나이저
+summary_ko: AI 특유의 문체를 없애고, 자연스러운 사람의 말투와 리듬으로 글을 다시 써줍니다.
 ---
-
 # Humanizer — Remove AI Writing Patterns
 
 Scan text for AI tells, remove them, and rewrite with natural rhythm and voice. The goal is not just pattern removal — the result should have personality, opinions, and genuine voice.

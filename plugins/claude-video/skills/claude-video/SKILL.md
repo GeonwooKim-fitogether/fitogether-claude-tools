@@ -1,8 +1,9 @@
 ---
 name: claude-video
 description: Analyze any video by downloading it, extracting frames and subtitles, and performing deep multimodal analysis. Use this skill whenever the user provides a YouTube URL or video link and wants to understand, summarize, or ask questions about video content.
+label_ko: 클로드 비디오
+summary_ko: 유튜브·영상 링크를 다운로드해 프레임과 자막을 추출하고 화면과 음성까지 심층 분석합니다.
 ---
-
 # Claude Video — Watch Any Video
 
 This skill enables deep video analysis by downloading videos, extracting frames at appropriate density, transcribing audio, and performing thorough visual + textual analysis.

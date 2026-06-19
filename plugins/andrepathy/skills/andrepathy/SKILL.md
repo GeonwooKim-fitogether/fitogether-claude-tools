@@ -1,8 +1,9 @@
 ---
 name: andrepathy
 description: Karpathy-inspired coding guidelines that prevent the 4 most common AI coding mistakes — assuming without asking, overcomplicating code, touching unrelated code, and coding without clear success criteria. Apply this skill to ALL coding tasks.
+label_ko: 안드레카파시
+summary_ko: AI의 고질적인 4가지 코딩 실수(가정 금지·단순성·외과적 수정·목표 기반 실행)를 막아주는 규칙입니다.
 ---
-
 Behavioral guidelines to reduce common LLM coding mistakes. Apply to every coding task.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.

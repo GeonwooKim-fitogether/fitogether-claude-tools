@@ -1,8 +1,9 @@
 ---
 name: skill-creator
 description: Build, test, and refine new Claude Code skills through an iterative workflow. Use this skill when the user wants to create a custom skill, improve an existing skill, or benchmark skill performance.
+label_ko: 스킬 크리에이터
+summary_ko: 원하는 기능을 설명하면 코드·테스트·패키징까지 알아서 새 스킬을 만들어 줍니다 (Anthropic 공식).
 ---
-
 # Skill Creator — Build Custom Claude Skills
 
 This skill guides the complete lifecycle of Claude Code skill development: from capturing intent through writing, testing, evaluating, and packaging.

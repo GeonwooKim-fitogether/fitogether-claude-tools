@@ -1,8 +1,9 @@
 ---
 name: find-skill
 description: Discover and recommend the best Claude Code skill for any task by searching a catalogue of 4800+ skills from official and community sources. Use this skill when the user isn't sure which skill to use, wants to find a skill for a specific purpose, or asks "is there a skill for X?"
+label_ko: 파인드 스킬
+summary_ko: 목적만 입력하면 4800개 이상의 카탈로그에서 지금 작업에 가장 적합한 스킬을 찾아 설치해 줍니다.
 ---
-
 # Find Skill — Discover the Right Skill for Any Task
 
 Search a multi-source catalogue of Claude Code skills and recommend the best match for what the user is trying to accomplish.

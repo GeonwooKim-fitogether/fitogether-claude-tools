@@ -1,8 +1,9 @@
 ---
 name: understand
 description: Scan a large codebase to build a knowledge graph of all files, functions, classes, and their dependencies, then render an interactive dashboard to visualize architecture and guide reading order. Use this skill when the user wants to understand an unfamiliar or large codebase.
+label_ko: 언더스탠드
+summary_ko: 코드베이스를 스캔해 의존성 지식 그래프를 만들고 아키텍처를 시각적으로 파악하게 해줍니다.
 ---
-
 # Understand — Codebase Knowledge Graph
 
 This skill performs a multi-agent scan of your project, builds a dependency knowledge graph, and generates an interactive React dashboard for visual architecture exploration.

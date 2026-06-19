@@ -1,16 +1,59 @@
 {
   "name": "fitogether-tools",
-  "owner": { "name": "FITogether", "email": "geonwoo.kim@fitogether.com" },
+  "owner": {
+    "name": "FITogether",
+    "email": "geonwoo.kim@fitogether.com"
+  },
   "plugins": [
-    { "name": "andrepathy",     "source": "./plugins/andrepathy",     "description": "Karpathy 4규칙 — 코딩 전 질문, 단순성, 외과적 수정, 목표 기반 실행" },
-    { "name": "claude-video",   "source": "./plugins/claude-video",   "description": "YouTube/영상 다운로드 → 프레임·자막 추출 → 멀티모달 분석" },
-    { "name": "superpower",     "source": "./plugins/superpower",     "description": "스펙→계획→TDD→코드 순서 강제 (시니어 워크플로우)" },
-    { "name": "understand",     "source": "./plugins/understand",     "description": "코드베이스 스캔 → 지식 그래프 → 아키텍처 시각화" },
-    { "name": "agent-memory",   "source": "./plugins/agent-memory",   "description": "세션 간 영속 메모리 저장·검색 (daily/long-term/scratchpad)" },
-    { "name": "skill-creator",  "source": "./plugins/skill-creator",  "description": "스킬 제작·테스트·평가·패키징 워크플로우 (Anthropic 공식)" },
-    { "name": "remotion",       "source": "./plugins/remotion",       "description": "Remotion 타이밍·오디오·컴포지션 오류 교정" },
-    { "name": "frontend-design","source": "./plugins/frontend-design","description": "AI 슬롭 방지 UI 디자인 가이드 (Anthropic 공식)" },
-    { "name": "humanizer",      "source": "./plugins/humanizer",      "description": "AI 문체 33가지 패턴 제거 + 개인 스타일 재작성" },
-    { "name": "find-skill",     "source": "./plugins/find-skill",     "description": "4800+ 스킬 카탈로그에서 목적별 스킬 검색·추천" }
+    {
+      "name": "agent-memory",
+      "source": "./plugins/agent-memory",
+      "description": "Persist session work to a local memory database and inject relevant context at the start of new sessions using vector and keyword search. Use this skill to maintain continuity across Claude Code sessions — save progress, recall past decisions, and avoid re-discovering things you already know."
+    },
+    {
+      "name": "andrepathy",
+      "source": "./plugins/andrepathy",
+      "description": "Karpathy-inspired coding guidelines that prevent the 4 most common AI coding mistakes — assuming without asking, overcomplicating code, touching unrelated code, and coding without clear success criteria. Apply this skill to ALL coding tasks."
+    },
+    {
+      "name": "claude-video",
+      "source": "./plugins/claude-video",
+      "description": "Analyze any video by downloading it, extracting frames and subtitles, and performing deep multimodal analysis. Use this skill whenever the user provides a YouTube URL or video link and wants to understand, summarize, or ask questions about video content."
+    },
+    {
+      "name": "find-skill",
+      "source": "./plugins/find-skill",
+      "description": "Discover and recommend the best Claude Code skill for any task by searching a catalogue of 4800+ skills from official and community sources. Use this skill when the user isn't sure which skill to use, wants to find a skill for a specific purpose, or asks \"is there a skill for X?"
+    },
+    {
+      "name": "frontend-design",
+      "source": "./plugins/frontend-design",
+      "description": "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one — prevents generic \"AI-slop\" aesthetics. Use this skill whenever building or redesigning frontend UI components, pages, or full interfaces."
+    },
+    {
+      "name": "humanizer",
+      "source": "./plugins/humanizer",
+      "description": "Remove AI writing patterns from text and rewrite in a natural, human voice — eliminating the 33+ telltale signs of AI-generated content including em-dash overuse, sycophantic openers, hedge stacking, and manufactured drama. Use this skill when the user wants to make text sound more natural or less AI-generated."
+    },
+    {
+      "name": "remotion",
+      "source": "./plugins/remotion",
+      "description": "Guidance for building programmatic videos with Remotion (React-based video framework). Corrects common AI mistakes in animation timing, audio sync, composition structure, and media handling. Use this skill for any Remotion video development task."
+    },
+    {
+      "name": "skill-creator",
+      "source": "./plugins/skill-creator",
+      "description": "Build, test, and refine new Claude Code skills through an iterative workflow. Use this skill when the user wants to create a custom skill, improve an existing skill, or benchmark skill performance."
+    },
+    {
+      "name": "superpower",
+      "source": "./plugins/superpower",
+      "description": "Senior developer workflow that forces spec writing, implementation planning, and test code before any production code — dramatically improving first-attempt quality. Use this skill for any non-trivial feature, bug fix, or refactor task."
+    },
+    {
+      "name": "understand",
+      "source": "./plugins/understand",
+      "description": "Scan a large codebase to build a knowledge graph of all files, functions, classes, and their dependencies, then render an interactive dashboard to visualize architecture and guide reading order. Use this skill when the user wants to understand an unfamiliar or large codebase."
+    }
   ]
 }

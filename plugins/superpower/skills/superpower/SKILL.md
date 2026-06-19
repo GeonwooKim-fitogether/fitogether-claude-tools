@@ -1,8 +1,9 @@
 ---
 name: superpower
 description: Senior developer workflow that forces spec writing, implementation planning, and test code before any production code — dramatically improving first-attempt quality. Use this skill for any non-trivial feature, bug fix, or refactor task.
+label_ko: 슈퍼파워
+summary_ko: 냅다 코드부터 짜는 대신 스펙→계획→테스트를 먼저 하도록 시니어 개발 방식을 강제합니다.
 ---
-
 # Superpower — Senior Developer Workflow
 
 This skill enforces a disciplined engineering methodology: spec first, plan second, tests third, code last. It prevents the common AI failure of jumping straight to implementation.

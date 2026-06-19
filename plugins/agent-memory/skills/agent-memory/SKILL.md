@@ -1,8 +1,9 @@
 ---
 name: agent-memory
 description: Persist session work to a local memory database and inject relevant context at the start of new sessions using vector and keyword search. Use this skill to maintain continuity across Claude Code sessions — save progress, recall past decisions, and avoid re-discovering things you already know.
+label_ko: 에이전트 메모리
+summary_ko: 세션 중 한 작업을 로컬에 저장해두고, 다음 세션에서 지금 작업에 꼭 필요한 맥락만 자동으로 다시 불러옵니다.
 ---
-
 # Agent Memory — Persistent Cross-Session Memory
 
 This skill maintains a local memory database that survives across Claude Code sessions. It compresses and stores work done during a session, then retrieves relevant context at the start of future sessions.

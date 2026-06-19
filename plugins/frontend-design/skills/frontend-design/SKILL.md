@@ -1,8 +1,9 @@
 ---
 name: frontend-design
 description: Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one — prevents generic "AI-slop" aesthetics. Use this skill whenever building or redesigning frontend UI components, pages, or full interfaces.
+label_ko: 프론트엔드 디자인
+summary_ko: 흔히 말하는 'AI 슬롭'(AI가 만든 티가 나는) 디자인을 막고 세련된 UI 결과물을 내도록 돕습니다.
 ---
-
 # Frontend Design — Distinctive UI, Not AI Defaults
 
 Act as a design lead at a small studio known for giving every client a unique visual identity. Make deliberate, opinionated choices about palette, typography, and layout specific to the brief, and take one justified aesthetic risk.
