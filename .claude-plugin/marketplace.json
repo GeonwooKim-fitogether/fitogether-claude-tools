@@ -69,6 +69,11 @@
       "name": "understand",
       "source": "./plugins/understand",
       "description": "Scan a large codebase to build a knowledge graph of all files, functions, classes, and their dependencies, then render an interactive dashboard to visualize architecture and guide reading order. Use this skill when the user wants to understand an unfamiliar or large codebase."
+    },
+    {
+      "name": "vendor-skills",
+      "source": "./plugins/vendor-skills",
+      "description": "현재 repo의 .claude/skills/ 안에 FITogether 공용 스킬 파일을 직접 복사(vendor)해 넣는다. 사용자가 \"이 repo에 스킬 가져와줘\", \"스킬 vendor\", \"스킬 파일 넣어줘\", \"레포에 스킬 복사\", \"/vendor-skills\" 라고 하면 이 스킬을 사용한다. 마켓플레이스 참조만 거는 new-project와 달리, 스킬 파일 자체를 repo 안에 넣어 네트워크/전역 설치 없이도 동작하는 self-contained repo를 만든다."
     }
   ]
 }
