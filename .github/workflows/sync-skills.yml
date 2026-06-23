@@ -1,0 +1,45 @@
+name: FITogether 스킬 동기화
+
+# 이 repo의 .claude/skills/ 를 FITogether 스킬 창고(fitogether-claude-tools)와
+# 주기적으로 맞춘다. 창고에서 스킬이 추가/수정/삭제되면, 이 봇이 알아서 가져와
+# 커밋하므로 사람이 손댈 일이 없다.
+#
+# 이 파일은 템플릿(창고)에 들어있어서 "Use this template"로 만든 모든 repo가
+# 함께 물려받는다. 각 repo는 자기 스케줄로 이 봇을 돌려 최신 스킬을 유지한다.
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"   # 매주 월요일 00:00 UTC
+  workflow_dispatch: {}     # 수동 실행도 허용
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 창고에서 스킬 가져오기
+        run: |
+          rm -rf .skills-src
+          git clone --depth 1 \
+            https://github.com/geonwookim-fitogether/fitogether-claude-tools .skills-src
+          mkdir -p .claude/skills
+          # 창고의 스킬을 이 repo로 복사(덮어쓰기). 이 repo만의 커스텀 스킬은 건드리지 않는다.
+          cp -a .skills-src/.claude/skills/. .claude/skills/
+          rm -rf .skills-src
+
+      - name: 변경 사항 커밋 (있을 때만)
+        run: |
+          if [ -n "$(git status --porcelain .claude/skills)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .claude/skills
+            git commit -m "chore: FITogether 스킬 동기화 [skip ci]"
+            git push
+          else
+            echo "이미 최신 — 커밋 생략"
+          fi

@@ -1,6 +1,0 @@
-{
-  "name": "firmware-map",
-  "version": "1.0.0",
-  "description": "Build a consistent, professional interactive understanding of a firmware/embedded C codebase.",
-  "skills": ["firmware-map"]
-}
