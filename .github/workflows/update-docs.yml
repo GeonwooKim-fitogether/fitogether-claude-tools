@@ -30,10 +30,11 @@ jobs:
 
       - name: 변경 사항 커밋 (있을 때만)
         run: |
-          if [ -n "$(git status --porcelain README.md .claude-plugin/marketplace.json)" ]; then
+          FILES="README.md .claude-plugin/marketplace.json templates/new-repo/.claude/settings.json"
+          if [ -n "$(git status --porcelain $FILES)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add README.md .claude-plugin/marketplace.json
+            git add $FILES
             git commit -m "docs: 스킬 목록 자동 갱신 [skip ci]"
             git push
           else
