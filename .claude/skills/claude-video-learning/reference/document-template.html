@@ -65,7 +65,7 @@
     body{max-width:1000px;margin:0 auto;padding:26px 20px 80px;background:#eef3f1;font-size:11pt;}
     figure svg{cursor:zoom-in;} .zoom-hint{color:#0b6b53;font-weight:700;}
   }
-  @media print { body{max-width:250mm;margin:0 auto;} .zoom-hint{display:none;} #lightbox{display:none!important;} }
+  @media print { body{max-width:250mm;margin:0 auto;} .dg{max-height:64mm;} figure img.shot{max-height:92mm;width:auto;} .zoom-hint{display:none;} #lightbox{display:none!important;} }
   #lightbox{position:fixed;inset:0;background:rgba(8,20,17,.93);display:none;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out;overflow:auto;padding:20px;}
   #lightbox.on{display:flex;}
   #lb-content svg{width:min(1500px,95vw);height:auto;background:#fff;border-radius:8px;padding:16px;box-shadow:0 10px 50px rgba(0,0,0,.5);}
@@ -103,7 +103,6 @@
   <!-- … add one <li> per STEP … -->
 </ol></div>
 
-<div class="pagebreak"></div>
 <div id="s0" class="step-banner"><span class="n">STEP 0</span><span class="t">30초 보고 — 결론부터</span><span class="tag">누구나 · 30초</span></div>
 <div class="step-body">
   <div class="tldr"><h3>한 문장 결론</h3><p style="margin:0;">{{한 문장 결론}}</p></div>
@@ -150,16 +149,14 @@
   </svg><figcaption>▲ …</figcaption></figure>
 ============================================================= -->
 
-<!-- … STEP 2, 3, … N (each: <div class="pagebreak"> as needed, banner, body, figures, tables, .why) … -->
+<!-- … STEP 2, 3, … N (banner, body, figures, tables, .why) … 강제 page-break는 피하라: STEP마다 끊으면 페이지 하단이 비어 보인다. 내용이 흐르며 채우게 두고, 도식은 height-cap으로 글과 한 페이지에 모이게 한다. (이미지는 쪼개지지 않아 안 맞으면 통째 다음 장으로 밀린다 — 그래서 도식을 작게.) -->
 
-<div class="pagebreak"></div>
 <div id="apply" class="step-banner" style="background:#11403a;"><span class="t">🎯 우리에게의 적용 포인트</span><span class="tag">기획 · 보통</span></div>
 <div class="step-body">
   <ul><li>{{적용1}}</li><li>{{적용2}}</li></ul>
   <p class="small">※ 영상 내용을 우리 맥락에 연결한 해석으로, 영상에서 직접 언급된 내용은 아닙니다.</p>
 </div>
 
-<div class="pagebreak"></div>
 <div id="appendix" class="step-banner" style="background:#51605c;"><span class="t">부록 · 타임스탬프 / 용어집 / 링크</span><span class="tag">참조용</span></div>
 <div class="step-body">
   <h4>타임스탬프</h4><table><tr><th>시각</th><th>내용</th></tr><tr><td>00:00</td><td>{{…}}</td></tr></table>

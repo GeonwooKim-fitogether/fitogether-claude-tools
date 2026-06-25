@@ -59,6 +59,7 @@ Give every conceptual STEP at least one figure; never leave a concept text-only 
 ### Step 7 — Render the PDF + deliver interactive HTML
 Per `reference/pipeline.md`:
 - The template is **landscape A4** in `@media print` (video is 16:9 — portrait crams/cuts it) and a comfortable web layout + **click-to-zoom lightbox** in `@media screen`.
+- **Pack pages densely — do NOT force a page-break before every STEP.** Per-STEP `pagebreak`s leave page bottoms empty; let content flow (STEP banners are enough separation). **Cap figure heights** (`@media print` — concept SVG ~48–64mm, screenshots ~74–92mm) so a figure + its surrounding text share a page. Images can't split across pages, so a too-tall figure jumps wholesale to the next page leaving a gap — keep figures modest, and tighten block spacing if pages still look sparse.
 - Render with **`chrome --headless=new … --print-to-pdf`** to an **absolute temp path**, then copy into the destination (old headless drops to 1 page; writing directly into the Drive/bracketed folder hits `액세스 거부`; Chrome can *read* input from there fine).
 - Pure inline-SVG HTML is self-contained as-is. If you used any real screenshots (`<img class="shot">`), **base64-inline them** (pipeline.md §6) so the delivered `분석.html` stays portable (0 `src="shots/"` / `src="frames/"` left). Verify `data:image` count == screenshot count.
 
