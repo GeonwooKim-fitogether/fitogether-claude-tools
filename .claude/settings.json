@@ -3,8 +3,8 @@
   "permissions": {
     "allow": [
       "mcp__Supabase__execute_sql",
-      "mcp__supabase-readonly",
-      "mcp__github"
+      "mcp__github",
+      "mcp__supabase-readonly"
     ],
     "ask": [
       "mcp__github__create_or_update_file",
