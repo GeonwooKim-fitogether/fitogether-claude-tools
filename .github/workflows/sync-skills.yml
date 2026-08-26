@@ -39,6 +39,19 @@ jobs:
           git clone --depth 1 \
             https://github.com/geonwookim-fitogether/Template-repository .skills-src
           mkdir -p .claude/skills .claude/rules .claude/agents .claude/commands .claude/workflows
+
+          # 봇 자신의 버전 대조 — 이 파일(.github/workflows/sync-skills.yml)은 동기화 대상이
+          # 아니라서, 창고에서 봇을 고쳐도 이 저장소에는 옛 판이 그대로 남는다. 그 드리프트는
+          # 오류를 내지 않아 조용하다. 실제로 한 저장소는 스킬만 받는 옛 봇이었고, 다른 저장소는
+          # 없는 경로를 바라보며 9회 연속 실패하는 화석이었는데, 둘 다 사람이 전파를 시도해서야
+          # 드러났다. 그래서 봇이 돌 때마다 자기 자신을 창고 판과 대조한다.
+          #
+          # 아무것도 막지 않는다 — 경고만 남긴다. 창고 자신에서는 두 파일이 같으므로 조용하다.
+          if [ -f .skills-src/.github/workflows/sync-skills.yml ] \
+             && ! cmp -s .skills-src/.github/workflows/sync-skills.yml .github/workflows/sync-skills.yml; then
+            echo "::warning title=동기화 봇이 창고 판과 다릅니다::.github/workflows/sync-skills.yml 이 창고(Template-repository)의 최신판과 다릅니다. 이 파일은 동기화 대상이 아니라 저장소마다 사람이 한 번 옮겨야 합니다 — 창고의 파일로 교체하는 PR 을 여세요."
+          fi
+
           # 스킬은 "폴더 하나가 스킬 하나"라서, 창고에 있는 스킬 폴더는 창고가 통째로 소유한다.
           # 그래서 덮어쓰기가 아니라 폴더째 지우고 다시 깔아 창고와 똑같이 맞춘다.
           #
