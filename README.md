@@ -38,6 +38,7 @@ FITogether 팀의 **Claude Code 공용 자산 창고 + 새 프로젝트 템플�
 | `andrepathy` | AI의 흔한 코딩 실수 4가지를 막는 코딩 규칙 |
 | `claude-video` | 영상을 빠르게 분석·요약·질의응답 (채팅, 파일 없음) |
 | `claude-video-learning` | 영상을 **교육자료**로 — 영상별 폴더에 가로 PDF + 인터랙티브 HTML, 핵심 도식을 벡터(SVG)로 재구성 |
+| `ceo-brief` | 의사결정자 보고의 형식 정본 — 5장 두괄식(장마다 결론 헤드라인 → 근거), 변화 보고에는 As-Is/To-Be 플로차트, 마지막 장은 결정 카드로 끝나는 자체완결 HTML 브리프. 메인 세션·kimpm·doc-clarifier·/orchestrate 가 총괄 대상 보고를 만들 때 이 규격을 따른다 |
 | `design-taste-frontend` | 안티슬롭 프론트엔드 — 브리핑을 읽고 방향을 정해 '템플릿 티' 없는 랜딩·포트폴리오·리디자인을 생성 (커뮤니티 Taste 스킬) |
 | `drbfm-qa` | 개정 전/후 스키매틱을 비교해 변경점을 도출하고 FITogether 표준 양식(개선 내용 정의 + As Is/To Be 회로도 + CheckList 11항목 자동 점검)의 DRBFM-QA HTML 생성 |
 | `find-skill` | 목적에 맞는 스킬을 카탈로그에서 찾아줌 |

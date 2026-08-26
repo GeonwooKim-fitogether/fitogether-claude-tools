@@ -83,6 +83,21 @@
       "from": ".claude/commands/orchestrate.md",
       "to": "docs/system-layer/kimlead-guide.md",
       "optional": true
+    },
+    {
+      "from": ".claude/agents/kimpm.md",
+      "to": ".claude/skills/ceo-brief/SKILL.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/agents/doc-clarifier.md",
+      "to": ".claude/skills/ceo-brief/SKILL.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/commands/orchestrate.md",
+      "to": ".claude/skills/ceo-brief/SKILL.md",
+      "optional": false
     }
   ]
 }
