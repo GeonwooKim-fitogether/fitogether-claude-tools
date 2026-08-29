@@ -159,6 +159,49 @@ h1,h2,h3,h4,p,dl,dd,dt{margin:0}
   gap:var(--sp-2);align-items:start}
 @media(max-width:1180px){.lanes{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}}
 @media(max-width:640px){.lanes{grid-template-columns:1fr}}
+/* ── 이번 회차의 이야기 ──────────────────────────────────────
+   이 판은 자유 서술 칸을 두지 않는 것이 절대 규칙이라, "무슨 일이 있었나"를
+   말할 자리가 없었다. 세 칸으로 가둬 그 자리만 연다 — 판정과 건수는 여전히
+   엔진이 계산하므로 숫자가 서술로 오염되지 않는다. */
+.story{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--teal);
+  border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-4);
+  display:grid;gap:var(--sp-2)}
+.story .sr{display:grid;grid-template-columns:132px 1fr;gap:var(--sp-1) var(--sp-3);align-items:baseline}
+@media(max-width:640px){.story .sr{grid-template-columns:1fr;gap:2px}}
+.story .sk{font-family:var(--mono);font-size:var(--fs-micro);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dim);font-weight:700}
+.story .sv{font-size:var(--fs-sec);color:var(--ink);line-height:1.62}
+.story .sr:last-child .sv{font-weight:700;color:var(--strong)}
+
+/* ── 낡음 경고 ───────────────────────────────────────────────
+   북마크로 몇 달 뒤 여는 사람이 낡은 판을 현재로 오해하는 것을 막는다.
+   '만들 때 며칠 됐나'가 아니라 '지금 보는 시점에 며칠 됐나'를 재야 하므로
+   엔진이 아니라 화면이 잰다. */
+.stale{display:none;align-items:center;gap:8px;background:var(--amber-bg);
+  border:1px solid var(--amber);border-radius:var(--r-md);
+  padding:var(--sp-2) var(--sp-3);margin-bottom:var(--sp-3);
+  font-size:var(--fs-sm);color:var(--ink);line-height:1.5}
+.stale.on{display:flex}
+.stale b{font-weight:800}
+.stale .si{font-weight:900;color:var(--amber);flex:none}
+
+/* ── 근거로 들어가는 링크 ────────────────────────────────────
+   판정에서 원본(요청·문서·현황)으로 한 번에 가는 통로. 결정이 필요한 카드에는
+   엔진이 이 링크를 필수로 요구하므로, 붉은 카드에는 반드시 이 줄이 있다. */
+.kid-l{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+.kid-l:hover{border-bottom-color:var(--link)}
+.kid-l:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:2px}
+.kid-l::after{content:"\2197";font-weight:800;margin-left:2px}
+.src{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);font-weight:700;
+  color:var(--link);text-decoration:none;border-bottom:1px solid transparent;width:fit-content}
+.src:hover{border-bottom-color:var(--link)}
+.src:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:2px}
+.src::after{content:"\2197";font-weight:800;font-size:.92em}
+.oc .src{margin-top:2px}
+.lane-hd{flex-wrap:wrap}
+.lane-mean{width:100%;font-size:var(--fs-xs);color:var(--muted);line-height:1.5;
+  padding:0 var(--sp-1);margin-top:-2px}
+
 .lane{background:var(--zebra);border:1px solid var(--grid);border-radius:var(--r-lg);
   padding:var(--sp-2);display:flex;flex-direction:column;gap:var(--sp-2);min-width:0}
 .lane-hd{display:flex;align-items:baseline;gap:6px;padding:0 var(--sp-1)}
@@ -428,6 +471,8 @@ h1,h2,h3,h4,p,dl,dd,dt{margin:0}
     </div>
   </header>
 
+  <div class="stale" id="stale"></div>
+  <div class="story" id="story"></div>
   <div class="legend" id="legend"></div>
 
   <!-- ══ 밴드 1 ══ -->
@@ -515,6 +560,28 @@ function renderChrome(){
   document.getElementById("meta").innerHTML =
     `${esc(T.metaPrefix)} <b>${esc(M.updated)}</b> ${esc(T.metaSuffix)}<br>${esc(T.metaNote)}`;
 
+  /* 이야기 세 칸 — 판정 색과 건수를 보기 전에 맥락을 먼저 읽게 맨 위에 둔다. */
+  document.getElementById("story").innerHTML =
+    [[T.storyHappened, M.story.happened], [T.storyProblem, M.story.problem],
+     [T.storyDecide, M.story.decide]]
+      .map(([k, val]) => `<div class="sr"><span class="sk">${esc(k)}</span>`
+                       + `<span class="sv">${esc(val || "")}</span></div>`).join("");
+
+  /* 낡음 경고 — 만들어진 시점이 아니라 **보는 시점** 기준으로 잰다.
+     북마크로 몇 달 뒤 여는 사람에게 필요한 것이 그쪽이기 때문이다. */
+  (function(){
+    const box = document.getElementById("stale");
+    const at = M.factsAt;
+    if (!at) return;
+    const d0 = new Date(at + "T00:00:00");
+    if (isNaN(d0)) return;
+    const days = Math.floor((Date.now() - d0.getTime()) / 86400000);
+    if (days <= (CFG.staleDays || 14)) return;
+    box.innerHTML = `<span class="si">⚠</span><span>`
+      + esc(T.staleWarn.replace("{at}", at).replace("{days}", String(days))) + `</span>`;
+    box.classList.add("on");
+  })();
+
   document.getElementById("legend").innerHTML =
     `<span class="lt">${esc(T.legendTitle)}</span>`
     + M.columns.map(c =>
@@ -580,13 +647,16 @@ function renderBand1(){
             <span class="oc-t"><h4>${esc(c.title)}</h4>${c.decide?`<span class="dcd">${esc(T.decideBadge)}</span>`:''}</span>
             <span class="rd">${rd(c.reading)}</span>
             ${cfgdl(c.plain, c.why)}
+            ${c.url ? `<a class="src" href="${esc(c.url)}" target="_blank" rel="noopener"
+                          onclick="event.stopPropagation()">${esc(T.srcLabel)}</a>` : ""}
           </button>`).join("")
         + (L.moreText
             ? `<button type="button" class="lane-more" data-more="${esc(L.key)}"
                        aria-expanded="false">${esc(L.moreText)}</button>` : "");
     return `<div class="lane" data-lanebox="${esc(L.key)}">
        <div class="lane-hd"><span class="ln">${esc(L.label)}</span><span class="le">${esc(L.en)}</span>
-         <span class="lc">${L.count}</span></div>
+         <span class="lc">${L.count}</span>
+         ${L.mean ? `<p class="lane-mean">${esc(L.mean)}</p>` : ""}</div>
        ${body}
      </div>`;
   }).join("");
@@ -622,7 +692,10 @@ function renderKanban(){
         const bg = w.block === "conflict" ? `<span class="kbg r">${esc(T.blockConflict)}</span>`
                  : w.block === "waiting"  ? `<span class="kbg a">${esc(T.blockWaiting)}</span>` : "";
         return `<article class="kcard tg" data-block="${esc(w.block||"")}" data-tid="work:${esc(w.id)}">
-          <div class="kt"><span class="kid">${esc(w.id)}</span>${bg}</div>
+          <div class="kt">${w.url
+              ? `<a class="kid kid-l" href="${esc(w.url)}" target="_blank" rel="noopener"
+                     title="${esc(T.srcLabel)}">${esc(w.id)}</a>`
+              : `<span class="kid">${esc(w.id)}</span>`}${bg}</div>
           <div class="kw">${esc(w.title)}</div>
           <div class="kmeta"><span class="chip">${esc(w.areaLabel)}</span><span class="chip">${esc(w.team)}</span></div>
         </article>`;
@@ -637,6 +710,7 @@ function renderKanban(){
     `<article class="ac tg" data-sev="${a.sev}" data-tid="asset:${esc(a.key)}">
        <div class="ah"><span class="asq"></span><span class="an">${esc(a.label)}</span>
          <span class="abg">${esc(a.badge)}</span></div>
+       ${a.url ? `<a class="src" href="${esc(a.url)}" target="_blank" rel="noopener">${esc(T.srcLabel)}</a>` : ""}
        ${cfgdl(a.plain, a.why)}
      </article>`).join("");
 }
@@ -790,6 +864,7 @@ function renderBand3(){
         <span class="cn">${esc(c.name)}</span></div>
       <span class="chk-st">${esc(c.statusLabel)}</span>
       ${cfgdl(c.plain, c.why)}
+      ${c.url ? `<a class="src" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(T.srcLabel)}</a>` : ""}
       <div class="chk-body">${fx}${body}</div>
     </div>`;
   }).join("");
