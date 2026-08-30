@@ -114,8 +114,8 @@ TEXT = {
     # 이야기 세 칸의 이름표
     "storyHappened": "무슨 일이 있었나", "storyProblem": "그래서 무엇이 문제인가",
     "storyDecide": "오늘 답할 것",
-    # 근거로 들어가는 링크의 이름
-    "srcLabel": "근거 열기",
+    # 두 겹 링크의 이름 — 해석본이 먼저, 원본은 그다음이다.
+    "briefLabel": "이게 무슨 뜻인가", "srcLabel": "원본 보기",
     # 낡음 경고 — 화면이 '보는 시점'에 계산해 채운다
     "staleWarn": "이 판의 사실은 {at} 기준입니다 — 오늘로 {days}일 전. 그 뒤에 바뀐 것은 여기 없습니다.",
     "laneMore": "그 외 {n}건 펼치기", "laneLess": "접기",
@@ -401,9 +401,16 @@ def _keyed(v, path, items, required, optional, keyfield="key", strings=()):
 def _check_url(v, path, value, why=""):
     """링크 칸을 검사한다. 사람이 눌러서 실제로 갈 수 있는 주소만 받는다.
 
-    현황판의 항목은 '무엇이 문제인가'까지만 말하고 '그래서 무엇을 보면 되나'는
-    말하지 못했다. 그 칸이 이 필드다. 빈 문자열이나 '#' 같은 자리표시를 받으면
-    링크가 있는 것처럼 보이지만 눌러도 아무 데도 가지 않으므로 거절한다.
+    이 판의 링크는 두 겹이다. 한 겹으로 두었더니 실패했기 때문이다 — 판정에서
+    곧장 원본(요청·SQL 파일·워크플로 설정)으로 떨어지면, 판단해야 하는 사람이
+    그 원본을 해독해야 한다. 그것은 이 체계가 없애려는 바로 그 부담이다.
+
+      url        해석본. 그 판정이 무슨 뜻이고 무엇을 정해야 하는지 경영 언어로
+                 쓴 브리프. 결정이 필요한 카드에는 필수다.
+      sourceUrl  원본. 해석본을 읽고 더 파고들 사람만 쓴다. 선택이다.
+
+    빈 문자열이나 '#' 같은 자리표시는 거절한다 — 링크가 있는 것처럼 보이지만
+    눌러도 아무 데도 가지 않는다.
     """
     if not isinstance(value, str) or not value.strip():
         v.err(path, "링크는 비어 있을 수 없습니다", why or "누르면 갈 곳이 있어야 링크입니다")
@@ -575,24 +582,30 @@ def validate_config(v, cfg):
     if v.lst("config.cards", cfg.get("cards"), 1):
         cards = _keyed(v, "config.cards", cfg["cards"],
                        ("key", "lane", "title", "plain", "metric"),
-                       ("why", "decide", "traceChecks", "url"),
+                       ("why", "decide", "traceChecks", "url", "sourceUrl"),
                        strings=("title", "plain", "why"))
         for k, card in cards.items():
             p = f"config.cards[{k}]"
             v.ref(f"{p}.lane", card.get("lane"), set(lanes), "관심사 열(lane)")
             if "decide" in card:
                 v.flag(f"{p}.decide", card["decide"])
+            if "sourceUrl" in card:
+                _check_url(v, f"{p}.sourceUrl", card["sourceUrl"])
             if "url" in card:
                 _check_url(v, f"{p}.url", card["url"])
-            # 사람이 정해 주기 전에는 못 가는 카드에는 링크가 **반드시** 있어야 한다.
-            # 이것이 이 개정의 핵심 강제다 — 문서로 "링크를 다세요"라고 적어 두면
-            # 다음 회차가 그냥 빠뜨리고, 읽는 사람은 판정만 보고 근거로 못 들어간다.
-            # 그래서 부탁이 아니라 렌더 거부로 만든다.
+            # 사람이 정해 주기 전에는 못 가는 카드에는 **해석본** 링크가 반드시
+            # 있어야 한다. 이것이 이 개정의 핵심 강제다 — 문서로 "링크를 다세요"라고
+            # 적어 두면 다음 회차가 그냥 빠뜨린다. 그래서 렌더 거부로 만든다.
+            #
+            # 원본(sourceUrl)으로는 이 요구를 대신할 수 없다. 판정에서 곧장 원본으로
+            # 떨어지면 판단해야 하는 사람이 그 원본을 해독해야 하고, 그 부담이 바로
+            # 이 판이 없애려는 것이기 때문이다.
             elif card.get("decide") is True:
                 v.err(f"{p}.url",
-                      "결정이 필요한 카드에는 링크(url)가 있어야 합니다",
-                      "이 카드는 사람이 판단해야 하는데, 판단하려면 근거를 열어 봐야 "
-                      "합니다. 눌러서 갈 곳(요청·문서·현황)을 적으세요")
+                      "결정이 필요한 카드에는 해석본 링크(url)가 있어야 합니다",
+                      "이 카드는 사람이 판단해야 합니다. 원본(요청·SQL·설정)이 아니라 "
+                      "'무엇이 걸려 있고 무엇을 정해야 하나'를 경영 언어로 쓴 브리프로 "
+                      "가는 링크를 적으세요. 원본은 sourceUrl 에 따로 답니다")
             if "traceChecks" in card:
                 got = v.strlist(f"{p}.traceChecks", card["traceChecks"])
                 for i, ck in enumerate(got or []):
@@ -1066,6 +1079,7 @@ def compute(C, D):
         cards[key] = {"id": key, "lane": card["lane"], "title": card["title"],
                       "plain": card["plain"], "why": card.get("why", ""),
                       "url": card.get("url", ""),
+                      "sourceUrl": card.get("sourceUrl", ""),
                       "severity": sev, "reading": reading,
                       # '결정 필요'는 실제로 걸려 있을 때만 붙인다. 늘 붙어 있으면 신호가 죽는다.
                       "decide": bool(card.get("decide")) and sev in ("risk", "warn")}

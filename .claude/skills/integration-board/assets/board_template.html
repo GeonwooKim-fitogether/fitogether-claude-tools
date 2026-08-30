@@ -198,6 +198,12 @@ h1,h2,h3,h4,p,dl,dd,dt{margin:0}
 .src:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:2px}
 .src::after{content:"\2197";font-weight:800;font-size:.92em}
 .oc .src{margin-top:2px}
+.srcrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:4px}
+/* 해석본이 먼저 읽히고 원본은 물러나야 한다 — 판단은 해석본을 보고 하는 것이고,
+   원본은 더 파고들 사람만 쓴다. 굵기와 색으로 그 순서를 말한다. */
+.src.brief{font-weight:800;color:var(--link)}
+.src.raw{font-weight:600;color:var(--muted)}
+.src.raw:hover{color:var(--dim);border-bottom-color:var(--dim)}
 .lane-hd{flex-wrap:wrap}
 .lane-mean{width:100%;font-size:var(--fs-xs);color:var(--muted);line-height:1.5;
   padding:0 var(--sp-1);margin-top:-2px}
@@ -647,8 +653,12 @@ function renderBand1(){
             <span class="oc-t"><h4>${esc(c.title)}</h4>${c.decide?`<span class="dcd">${esc(T.decideBadge)}</span>`:''}</span>
             <span class="rd">${rd(c.reading)}</span>
             ${cfgdl(c.plain, c.why)}
-            ${c.url ? `<a class="src" href="${esc(c.url)}" target="_blank" rel="noopener"
-                          onclick="event.stopPropagation()">${esc(T.srcLabel)}</a>` : ""}
+            ${(c.url || c.sourceUrl) ? `<span class="srcrow">
+              ${c.url ? `<a class="src brief" href="${esc(c.url)}" target="_blank" rel="noopener"
+                            onclick="event.stopPropagation()">${esc(T.briefLabel)}</a>` : ""}
+              ${c.sourceUrl ? `<a class="src raw" href="${esc(c.sourceUrl)}" target="_blank" rel="noopener"
+                                  onclick="event.stopPropagation()">${esc(T.srcLabel)}</a>` : ""}
+            </span>` : ""}
           </button>`).join("")
         + (L.moreText
             ? `<button type="button" class="lane-more" data-more="${esc(L.key)}"

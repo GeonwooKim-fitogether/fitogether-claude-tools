@@ -171,7 +171,8 @@
       "traceChecks": [
         "lint"
       ],
-      "url": "https://github.com/OWNER/REPO/issues?q=is%3Aopen+label%3A%EA%B2%B0%EC%A0%95%ED%95%84%EC%9A%94"
+      "url": "https://github.com/OWNER/REPO/blob/main/docs/decision-brief.md#ov-token",
+      "sourceUrl": "https://github.com/OWNER/REPO/issues?q=is%3Aopen+label%3A%EA%B2%B0%EC%A0%95%ED%95%84%EC%9A%94"
     },
     {
       "key": "ov-contract",
@@ -198,7 +199,8 @@
         "check": "spine"
       },
       "decide": true,
-      "url": "https://github.com/OWNER/REPO/issues?q=is%3Aopen+label%3A%EA%B2%B0%EC%A0%95%ED%95%84%EC%9A%94"
+      "url": "https://github.com/OWNER/REPO/blob/main/docs/decision-brief.md#ov-spine",
+      "sourceUrl": "https://github.com/OWNER/REPO/issues?q=is%3Aopen+label%3A%EA%B2%B0%EC%A0%95%ED%95%84%EC%9A%94"
     },
     {
       "key": "ov-change",

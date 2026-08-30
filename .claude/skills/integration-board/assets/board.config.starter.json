@@ -123,7 +123,8 @@
         "asset": "component"
       },
       "decide": true,
-      "url": "https://github.com/OWNER/REPO/issues/1"
+      "url": "https://github.com/OWNER/REPO/blob/main/docs/decision-brief.md#c-component",
+      "sourceUrl": "https://github.com/OWNER/REPO/issues/1"
     },
     {
       "key": "c-security",
@@ -136,7 +137,8 @@
         "check": "security"
       },
       "decide": true,
-      "url": "https://github.com/OWNER/REPO/issues/1"
+      "url": "https://github.com/OWNER/REPO/blob/main/docs/decision-brief.md#c-security",
+      "sourceUrl": "https://github.com/OWNER/REPO/issues/1"
     },
     {
       "key": "c-screen",
