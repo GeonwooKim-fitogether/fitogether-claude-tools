@@ -49,6 +49,22 @@
         ".claude/workflows/system-sweep.js",
         ".claude/workflows/kimlead-verified.js"
       ]
+    },
+    {
+      "name": "rule-appendix-judgment-placement",
+      "reason": "규범 코어가 전수 배치표 부록을 링크한다 — 코어만 있고 부록이 없으면 죽은 링크",
+      "members": [
+        ".claude/rules/judgment-placement.md",
+        ".claude/rules/reference/judgment-placement-map.md"
+      ]
+    },
+    {
+      "name": "kimlead-verified-engine",
+      "reason": "엔진과 그 배선 시험은 한 몸 — 시험 없이 엔진만 내려가면 되돌아가는 엣지가 실제로 발동하는지 아무도 확인할 수 없다",
+      "members": [
+        ".claude/workflows/kimlead-verified.js",
+        ".claude/workflows/kimlead-verified.test.mjs"
+      ]
     }
   ],
   "references": [
@@ -97,6 +113,32 @@
     {
       "from": ".claude/commands/orchestrate.md",
       "to": ".claude/skills/ceo-brief/SKILL.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/rules/judgment-placement.md",
+      "to": ".claude/rules/escalation.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/rules/judgment-placement.md",
+      "to": ".claude/rules/stake-calibration.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/rules/judgment-placement.md",
+      "to": ".claude/rules/lessons-backport.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/rules/stake-calibration.md",
+      "to": ".claude/commands/goal-prompt.md",
+      "optional": false,
+      "$comment": "판돈 규칙의 /goal 절이 지시서 생성 커맨드를 가리킨다 — 커맨드가 없으면 규칙이 없는 곳을 가리킨다"
+    },
+    {
+      "from": ".claude/commands/goal-prompt.md",
+      "to": ".claude/rules/stake-calibration.md",
       "optional": false
     }
   ]
