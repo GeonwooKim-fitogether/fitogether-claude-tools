@@ -10,6 +10,17 @@
 # the bundled Chromium build or the default launch() fails.
 set -euo pipefail
 
+# --- 폐기 목록 안내 (past-decisions 규칙) -----------------------------------
+# 규칙(.claude/rules/)은 세션 시작 시 자동으로 읽히는데 결정 기록은 읽히지
+# 않는다. 그래서 새 세션은 "어떻게 일할 것인가"는 알고 들어오면서 "무엇을 하지
+# 않기로 정했나"는 모른 채 들어온다. 이 한 줄이 그 구멍을 메운다.
+#
+# .claude/retired.json 이 없는 저장소에서는 아무것도 출력하지 않는다.
+# 이 안내는 환경과 무관하게 항상 돌아야 하므로 아래 원격 전용 구간보다 앞에 둔다.
+if [ -f "$(dirname "$0")/retired-guard.py" ]; then
+  python3 "$(dirname "$0")/retired-guard.py" --announce 2>/dev/null || true
+fi
+
 # Only run in the remote (Claude Code on the web) environment. Locally, leave
 # the user's own Python setup untouched.
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then

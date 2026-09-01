@@ -49,6 +49,24 @@
         ".claude/workflows/system-sweep.js",
         ".claude/workflows/kimlead-verified.js"
       ]
+    },
+    {
+      "name": "retired-guard",
+      "reason": "규칙만 내려가고 훅이 없으면 폐기가 강제되지 않는 글만 남는다. 세션 시작 안내도 같은 훅이 낸다",
+      "members": [
+        ".claude/rules/past-decisions.md",
+        ".claude/hooks/retired-guard.py",
+        ".claude/hooks/retired-guard.test.py",
+        ".claude/hooks/session-start.sh"
+      ]
+    },
+    {
+      "name": "rule-appendix-past-decisions",
+      "reason": "규범 코어가 부록을 링크한다",
+      "members": [
+        ".claude/rules/past-decisions.md",
+        ".claude/rules/reference/past-decisions-history.md"
+      ]
     }
   ],
   "references": [
@@ -97,6 +115,11 @@
     {
       "from": ".claude/commands/orchestrate.md",
       "to": ".claude/skills/ceo-brief/SKILL.md",
+      "optional": false
+    },
+    {
+      "from": ".claude/rules/past-decisions.md",
+      "to": ".claude/rules/escalation.md",
       "optional": false
     }
   ]
