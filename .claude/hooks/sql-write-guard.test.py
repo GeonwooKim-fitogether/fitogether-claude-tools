@@ -287,8 +287,91 @@ def check_unlock() -> int:
     return failures
 
 
+def check_bash_gate() -> int:
+    """셸 감시면 — 자체 호스팅 통로에 승인 관문이 서는지, 그리고 **일반 작업은 안 막는지**.
+
+    두 방향을 같은 무게로 본다. 라이브 데이터베이스를 바꾸는 스크립트 실행은 반드시
+    걸려야 하고(걸리지 않으면 관문이 없는 것이다), 그 밖의 셸 명령은 아무 판정도 받지
+    않아야 한다(막히면 훅이 세션의 일을 방해하는 장치가 되어 사람이 훅을 꺼 버린다).
+    """
+    failures = 0
+
+    # ① 마이그레이션 적용 스크립트 — 저장소에 없는 파일이면 push 판정에 먼저 걸린다.
+    out = run_hook({
+        "tool_name": "Bash",
+        "tool_input": {"command": "sh selfhost/apply-migration.sh supabase/migrations/29990101000000_nope.sql"},
+    })
+    if decision_of(out) != "deny" or "적용 전 push 판정" not in reason_of(out):
+        print(f"  [실패] 셸 마이그레이션 적용이 push 판정에 걸리지 않았다: {out!r}")
+        failures += 1
+
+    # ② 인자가 없어도(또는 마이그레이션 파일이 아니어도) 열쇠 없이는 막혀야 한다.
+    for command in (
+        "sh selfhost/apply-migration.sh",
+        "sh selfhost/deploy-stack.sh --restore-force",
+        "cd /home/user/Fitstack && sh selfhost/deploy-stack.sh",
+        'bash -c "sh selfhost/apply-migration.sh"',
+    ):
+        out = run_hook({"tool_name": "Bash", "tool_input": {"command": command}})
+        if decision_of(out) != "deny":
+            print(f"  [실패] 라이브 데이터베이스를 바꾸는 명령이 막히지 않았다: {command!r} -> {out!r}")
+            failures += 1
+
+    # ③ 막으면 안 되는 것 — 조회 스크립트, 그 파일을 읽는 명령, 평범한 작업.
+    #    여기서 무엇이든 판정이 나오면 그것이 곧 오탐이다.
+    for command in (
+        'sh selfhost/query.sh "select count(*) from item"',
+        "cat selfhost/apply-migration.sh",
+        "grep -n apply-migration.sh selfhost/README.md",
+        "sed -n 1,40p selfhost/deploy-stack.sh",
+        "git status --porcelain",
+        "cd app && pnpm test",
+    ):
+        out = run_hook({"tool_name": "Bash", "tool_input": {"command": command}})
+        if out:
+            print(f"  [실패] 평범한 셸 명령에 판정이 나왔다(오탐): {command!r} -> {out!r}")
+            failures += 1
+
+    # ④ 열쇠는 셸 통로에서도 통하고, 그 승인이 **다른 명령으로 번지지 않는다.**
+    key = pathlib.Path(guard.unlock_path())
+    receipt = pathlib.Path(guard.receipt_path())
+    if key.exists():
+        print("  [건너뜀] 열쇠 파일이 이미 있어 ④ 는 돌리지 않는다")
+    else:
+        approved = "sh selfhost/deploy-stack.sh --restore-force"
+        key.write_text("시험용 열쇠\n")
+        try:
+            out = run_hook({"tool_name": "Bash", "tool_input": {"command": approved}})
+            if decision_of(out) != "allow":
+                print(f"  [실패] 열쇠가 있는데 셸 통로가 막혔다: {out!r}")
+                failures += 1
+
+            # 같은 명령의 재판정은 영수증으로 통과해야 한다(한 호출에 훅이 여러 번 발동한다).
+            out = run_hook({"tool_name": "Bash", "tool_input": {"command": approved}})
+            if decision_of(out) != "allow":
+                print(f"  [실패] 같은 명령의 재판정이 영수증으로 통과하지 못했다: {out!r}")
+                failures += 1
+
+            # 다른 명령은 그 영수증을 빌려 쓸 수 없어야 한다 — 지문에 명령을 넣은 이유다.
+            out = run_hook({
+                "tool_name": "Bash",
+                "tool_input": {"command": "sh selfhost/apply-migration.sh"},
+            })
+            if decision_of(out) != "deny":
+                print(f"  [실패] 승인받지 않은 다른 셸 명령이 영수증을 빌려 썼다: {out!r}")
+                failures += 1
+        finally:
+            if key.exists():
+                key.unlink()
+            if receipt.exists():
+                receipt.unlink()
+
+    return failures
+
+
 if __name__ == "__main__":
-    total = check_classify() + check_hook_output() + check_unlock() + check_push_gate()
+    total = (check_classify() + check_hook_output() + check_unlock()
+             + check_push_gate() + check_bash_gate())
     if total:
         print(f"\n실패 {total}건")
         sys.exit(1)
@@ -296,4 +379,5 @@ if __name__ == "__main__":
           f"쓰기 {len(SHOULD_DENY)}건은 모두 차단됐으며, "
           f"마이그레이션은 내용과 무관하게 차단되고, "
           f"열쇠는 같은 지문의 재판정만 통과시켰고 다른 쿼리·만료 영수증은 막았으며, "
-          f"push 되지 않은 마이그레이션은 열쇠로도 넘어가지 못했습니다.")
+          f"push 되지 않은 마이그레이션은 열쇠로도 넘어가지 못했으며, "
+          f"셸로 라이브 데이터베이스를 바꾸는 명령은 막히고 평범한 셸 명령은 그대로 통과했습니다.")

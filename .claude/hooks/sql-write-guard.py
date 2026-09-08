@@ -12,17 +12,23 @@ Supabase 의 SQL 실행 도구(`execute_sql`)는 권한 목록에서 통째로 �
 이 훅이 그 틈을 메웁니다. 도구가 호출되기 직전에 쿼리문을 읽어, 읽기만 하는
 쿼리면 그대로 통과시키고, 데이터나 구조를 바꾸는 쿼리면 차단합니다.
 
-## 두 도구를 본다 — 하나는 가려서, 하나는 무조건
+## 세 개의 감시면 — 저장소가 어느 통로를 쓰든 관문이 서게
 
-| 도구 | 하는 일 | 이 훅의 처리 |
+| 감시면 | 하는 일 | 이 훅의 처리 |
 |---|---|---|
-| `execute_sql` | 조회와 쓰기가 한 도구에 섞여 있다 | 쿼리문을 읽어 **가린다.** 조회면 통과, 쓰기면 차단 |
-| `apply_migration` | 데이터베이스 구조를 바꾸는 스크립트를 적용한다 | 두 단계다. 먼저 그 파일이 **push 됐는지** 보고 아니면 열쇠와 무관하게 차단한다. push 됐으면 그다음은 전부 쓰기이므로 열쇠를 요구한다 |
+| 커넥터의 `execute_sql` | 조회와 쓰기가 한 도구에 섞여 있다 | 쿼리문을 읽어 **가린다.** 조회면 통과, 쓰기면 차단 |
+| 커넥터의 `apply_migration` | 데이터베이스 구조를 바꾸는 스크립트를 적용한다 | 두 단계다. 먼저 그 파일이 **push 됐는지** 보고 아니면 열쇠와 무관하게 차단한다. push 됐으면 그다음은 전부 쓰기이므로 열쇠를 요구한다 |
+| `Bash` | 자체 호스팅 저장소는 셸 스크립트로 마이그레이션을 적용한다 | 명령이 그 스크립트를 **실행하는지** 가려, 실행이면 커넥터와 같은 순서(push 판정 → 열쇠)를 적용한다. 그 밖의 모든 셸 명령에는 아무 판정도 내지 않는다 |
 
-`apply_migration` 을 함께 보는 이유는 실제 사고에서 나왔습니다. 한 세션이 이 도구를
+앞의 둘을 보는 이유는 실제 사고에서 나왔습니다. 한 세션이 `apply_migration` 을
 여섯 번 불러 라이브 데이터베이스를 바꿨는데, 그 도구는 허용 목록에도 없고 이 훅도
 보지 않던 경로여서 아무 확인 없이 지나갔습니다. `execute_sql` 만 막아 두면 옆문이
 열려 있는 셈입니다.
+
+세 번째를 더한 이유도 같은 모양입니다. **통로가 옮겨가면 관문은 따라가지 않습니다.**
+Fitstack 이 2026-09-03 에 관리형 Supabase 에서 자체 호스팅으로 옮기자 적용 통로가
+커넥터 호출에서 셸 스크립트 실행으로 바뀌었고, 훅은 옛 통로를 그대로 지키고 있었습니다.
+막는 장치가 아무도 다니지 않는 길에 서 있는 상태였고, 오류는 한 번도 나지 않았습니다.
 
 ## 왜 "확인 요청"이 아니라 "차단"인가 — 이 환경에서 실측한 결과
 
@@ -167,7 +173,37 @@ RECEIPT_TTL_SECONDS = 900
 # 바꾸는 스크립트이므로 전부 쓰기다. 그래서 쿼리 내용과 무관하게 열쇠를 요구한다.
 SQL_TOOL = "mcp__Supabase__execute_sql"
 MIGRATION_TOOL = "mcp__Supabase__apply_migration"
-WATCHED_TOOLS = (SQL_TOOL, MIGRATION_TOOL)
+
+# 세 번째 감시면 — 셸로 라이브 데이터베이스를 바꾸는 스크립트.
+#
+# ## 왜 늘렸나 (2026-09-08 Fitstack 실측)
+#
+# 이 훅은 원래 커넥터 도구 두 개만 보았다. 그런데 저장소가 관리형 Supabase 에서 자체
+# 호스팅으로 옮기면 마이그레이션을 적용하는 통로가 커넥터 호출에서 **셸 스크립트 실행**
+# 으로 바뀐다(예: `sh selfhost/apply-migration.sh <파일>`). 통로가 옮겨간 뒤에도 훅이 옛
+# 통로만 보고 있으면, 차단 장치는 아무도 다니지 않는 길을 지키고 **실제로 쓰는 길에는
+# 승인 관문이 없다.** Fitstack 이 2026-09-03 에 자체 호스팅으로 컷오버한 뒤 정확히 그
+# 상태였고, 그것을 메우려고 이 감시면을 더했다.
+#
+# ## 무엇을 라이브 쓰기로 보나 — 스크립트 두 종류만
+#
+# 조회 스크립트(예: `selfhost/query.sh`)는 세션 수준에서 읽기 전용이 강제되므로 보지
+# 않는다. 그것까지 막으면 조회마다 승인이 필요해져 훅을 넣은 뜻이 무너진다.
+LIVE_DB_WRITE_SCRIPTS = (
+    ("apply-migration.sh", "마이그레이션을 라이브 데이터베이스에 적용하는 스크립트"),
+    ("deploy-stack.sh", "스택을 다시 세우며 데이터베이스를 복원·교체할 수 있는 스크립트"),
+)
+
+# 한 줄에 여러 명령이 붙어 있으면 토막마다 따로 본다.
+SEGMENT_SPLIT = re.compile(r"(?:\|\||&&|[;|\n])")
+
+# 명령 앞에 붙는 감싸개. 이것들을 벗긴 다음 자리가 실제로 실행되는 명령이다.
+COMMAND_WRAPPERS = {
+    "sh", "bash", "zsh", "dash", "sudo", "env", "time", "nohup", "exec", "xargs",
+}
+
+BASH_TOOL = "Bash"
+WATCHED_TOOLS = (SQL_TOOL, MIGRATION_TOOL, BASH_TOOL)
 
 
 def unlock_path() -> str:
@@ -189,6 +225,9 @@ def call_fingerprint(payload: dict) -> str:
         str(payload.get("tool_name") or ""),
         str(ti.get("name") or ""),
         str(ti.get("query") or ""),
+        # 셸 명령도 지문에 넣는다. 넣지 않으면 모든 Bash 호출의 지문이 같아져,
+        # 한 번 승인한 명령의 영수증으로 **다른 명령**이 통과할 수 있다.
+        str(ti.get("command") or ""),
     ])
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
@@ -354,6 +393,62 @@ def migration_push_state(name: str):
     return "pushed", f"`{rel}` 이 원격에 있습니다 ({remotes.split()[0]})"
 
 
+def bash_live_db_write(command: str):
+    """셸 명령이 라이브 데이터베이스를 바꾸는 스크립트를 **실행하는가**.
+
+    돌려주는 값은 `(설명, sql 인자)` 이고, 해당 없으면 `(None, None)` 이다.
+
+    ## 왜 "글자가 들어 있는가"가 아니라 "실행하는가"로 보나
+
+    Bash 는 세션이 거의 모든 일을 하는 통로다. 명령 문자열에 스크립트 이름이 보이기만
+    하면 막는다면, 그 파일을 **읽는** 정상 작업(`cat selfhost/apply-migration.sh`)까지
+    막혀 훅이 일을 방해하는 장치가 된다. 그래서 명령 토막에서 감싸개(`sh`·`sudo` 등)와
+    앞선 환경변수 지정을 벗긴 **첫 자리**가 그 스크립트일 때만 실행으로 본다.
+
+    ## 이 판정만 애매할 때 막지 않는 이유
+
+    이 파일의 다른 판정은 애매하면 차단으로 간다. 여기서만 반대인 것은 감시면이 SQL 한
+    줄이 아니라 **셸 전체**이기 때문이다. 확실하지 않은 것까지 막기 시작하면 관계없는
+    작업이 멈추고, 그러면 사람이 훅 자체를 꺼 버린다. 정직하게 적어 둘 한계는 이렇다 —
+    스크립트를 거치지 않고 데이터베이스에 직접 붙는 명령(원격에서 psql 을 띄우는 등)은
+    이 훅이 가려내지 못하므로, 그 경로에서는 규칙 문서의 세 단계(보여 주기·승인·실행)를
+    Claude 가 스스로 지켜야 한다.
+    """
+    for segment in SEGMENT_SPLIT.split(command or ""):
+        tokens = [t for t in segment.strip().split() if t]
+        while tokens:
+            head = tokens[0]
+            bare = os.path.basename(head.strip("\"'()"))
+            is_env_assign = re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", head) is not None
+            if is_env_assign or head.startswith("-") or bare in COMMAND_WRAPPERS:
+                tokens.pop(0)
+                continue
+            break
+        if not tokens:
+            continue
+        target = os.path.basename(tokens[0].strip("\"'()"))
+        for script, label in LIVE_DB_WRITE_SCRIPTS:
+            if target == script:
+                sql_arg = next(
+                    (t.strip("\"'") for t in tokens[1:] if t.strip("\"'").endswith(".sql")),
+                    None,
+                )
+                return label, sql_arg
+    return None, None
+
+
+def push_denied_reason(detail: str) -> str:
+    """적용 전 push 판정에 걸렸을 때의 설명. 커넥터 통로와 셸 통로가 같은 문구를 쓴다."""
+    return (
+        f"적용 전 push 판정에 걸렸습니다 — {detail}. "
+        "마이그레이션은 라이브에 적용하기 **전에** 파일을 커밋하고 push 해야 합니다. "
+        "2026-08-18 에 한 세션이 발효 함수의 결함 넷을 고쳐 적용하면서 파일을 push 하지 "
+        "않았고, 13분 뒤 다른 세션이 저장소만 보고 같은 함수를 고쳐 그 수정을 통째로 "
+        "되돌렸습니다. push 는 다른 세션이 내 변경을 읽을 수 있게 하는 유일한 통로입니다. "
+        "이 판정은 열쇠로 넘어갈 수 없습니다 — push 한 뒤 다시 실행하십시오."
+    )
+
+
 def strip_noise(sql: str) -> str:
     """주석과 문자열 리터럴을 지운다.
 
@@ -410,21 +505,37 @@ def main() -> int:
     if tool not in WATCHED_TOOLS:
         return 0
 
-    if tool == MIGRATION_TOOL:
+    if tool == BASH_TOOL:
+        command = (payload.get("tool_input") or {}).get("command") or ""
+        label, sql_arg = bash_live_db_write(command)
+        if not label:
+            # 라이브 데이터베이스를 바꾸는 명령이 아니다 — 아무 판정도 내지 않고 물러난다.
+            # Bash 는 일반 작업 통로이므로, 여기서 침묵하는 것이 이 감시면의 전제다.
+            return 0
+
+        # 커넥터 통로와 같은 순서를 지킨다 — 적용 전 push 판정이 열쇠보다 앞이다.
+        # 스크립트 자신도 같은 확인을 하지만, 훅에도 두어 스크립트가 바뀌어도 이 순서가
+        # 남게 한다. 넘긴 인자가 마이그레이션 파일일 때만 판정한다.
+        if sql_arg:
+            name = os.path.basename(sql_arg)
+            if name.endswith(".sql"):
+                name = name[: -len(".sql")]
+            state, detail = migration_push_state(name)
+            if state == "unpushed":
+                emit("deny", push_denied_reason(detail))
+                return 0
+            if state == "unknown":
+                label = f"{label} (참고: 적용 전 push 여부를 재지 못했습니다 — {detail})"
+
+        reason = f"셸로 라이브 데이터베이스를 바꾸는 명령입니다 — {label}"
+    elif tool == MIGRATION_TOOL:
         # 열쇠보다 **앞에** 두는 판정. 열쇠는 "사용자가 이 SQL 을 승인했다"를 뜻하는데,
         # push 여부는 승인으로 대체될 수 없다 — push 하지 않고 적용하면 다음 세션이 그
         # 변경을 볼 방법이 아예 없기 때문이다. 2026-08-18 되돌림 사고의 원인 절반이 이것이다.
         name = (payload.get("tool_input") or {}).get("name") or ""
         state, detail = migration_push_state(name)
         if state == "unpushed":
-            emit("deny", (
-                f"적용 전 push 판정에 걸렸습니다 — {detail}. "
-                "마이그레이션은 라이브에 적용하기 **전에** 파일을 커밋하고 push 해야 합니다. "
-                "2026-08-18 에 한 세션이 발효 함수의 결함 넷을 고쳐 적용하면서 파일을 push 하지 "
-                "않았고, 13분 뒤 다른 세션이 저장소만 보고 같은 함수를 고쳐 그 수정을 통째로 "
-                "되돌렸습니다. push 는 다른 세션이 내 변경을 읽을 수 있게 하는 유일한 통로입니다. "
-                "이 판정은 열쇠로 넘어갈 수 없습니다 — push 한 뒤 다시 실행하십시오."
-            ))
+            emit("deny", push_denied_reason(detail))
             return 0
         if state == "unknown":
             reason = (
@@ -452,7 +563,7 @@ def main() -> int:
 
     emit("deny", (
         f"{reason}. "
-        "데이터베이스의 데이터나 구조를 바꾸는 쿼리는 사용자의 허락 없이 실행할 수 없습니다. "
+        "데이터베이스의 데이터나 구조를 바꾸는 일은 사용자의 허락 없이 실행할 수 없습니다. "
         f"사용자가 승인했다면 열쇠 파일({UNLOCK_FILENAME})을 만든 뒤 다시 실행하십시오. "
         "열쇠는 한 번 쓰면 사라집니다."
     ))
