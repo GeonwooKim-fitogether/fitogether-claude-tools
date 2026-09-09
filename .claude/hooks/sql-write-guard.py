@@ -12,13 +12,14 @@ Supabase 의 SQL 실행 도구(`execute_sql`)는 권한 목록에서 통째로 �
 이 훅이 그 틈을 메웁니다. 도구가 호출되기 직전에 쿼리문을 읽어, 읽기만 하는
 쿼리면 그대로 통과시키고, 데이터나 구조를 바꾸는 쿼리면 차단합니다.
 
-## 세 개의 감시면 — 저장소가 어느 통로를 쓰든 관문이 서게
+## 네 개의 감시면 — 저장소가 어느 통로를 쓰든 관문이 서게
 
 | 감시면 | 하는 일 | 이 훅의 처리 |
 |---|---|---|
 | 커넥터의 `execute_sql` | 조회와 쓰기가 한 도구에 섞여 있다 | 쿼리문을 읽어 **가린다.** 조회면 통과, 쓰기면 차단 |
 | 커넥터의 `apply_migration` | 데이터베이스 구조를 바꾸는 스크립트를 적용한다 | 두 단계다. 먼저 그 파일이 **push 됐는지** 보고 아니면 열쇠와 무관하게 차단한다. push 됐으면 그다음은 전부 쓰기이므로 열쇠를 요구한다 |
 | `Bash` | 자체 호스팅 저장소는 셸 스크립트로 마이그레이션을 적용한다 | 명령이 그 스크립트를 **실행하는지** 가려, 실행이면 커넥터와 같은 순서(push 판정 → 열쇠)를 적용한다. 그 밖의 모든 셸 명령에는 아무 판정도 내지 않는다 |
+| GitHub Actions 실행 도구 | 적용을 **저장소의 자동 작업(워크플로)** 으로 옮기면, 그 작업을 부르는 것이 곧 라이브 쓰기다 | 부르려는 워크플로 파일 이름이 라이브 데이터베이스를 바꾸는 목록에 있을 때만 같은 순서를 적용한다. 다른 워크플로(빌드·검사·배포)에는 아무 판정도 내지 않는다 |
 
 앞의 둘을 보는 이유는 실제 사고에서 나왔습니다. 한 세션이 `apply_migration` 을
 여섯 번 불러 라이브 데이터베이스를 바꿨는데, 그 도구는 허용 목록에도 없고 이 훅도
@@ -29,6 +30,17 @@ Supabase 의 SQL 실행 도구(`execute_sql`)는 권한 목록에서 통째로 �
 Fitstack 이 2026-09-03 에 관리형 Supabase 에서 자체 호스팅으로 옮기자 적용 통로가
 커넥터 호출에서 셸 스크립트 실행으로 바뀌었고, 훅은 옛 통로를 그대로 지키고 있었습니다.
 막는 장치가 아무도 다니지 않는 길에 서 있는 상태였고, 오류는 한 번도 나지 않았습니다.
+
+네 번째는 같은 일이 **또 일어나기 전에** 미리 세운 것입니다. 적용을 사람의 컴퓨터에서
+저장소의 자동 작업으로 옮기면(원격 세션에는 클라우드 접속 자격이 없으므로 그렇게 옮기게
+됩니다), 셸 감시면이 보던 명령은 더 이상 세션에서 실행되지 않습니다. 대신 세션은 "그
+워크플로를 돌려라"라고 GitHub 에 요청하고, 실제 적용은 GitHub 의 실행기가 합니다. 그
+요청 한 번이 곧 라이브 데이터베이스 쓰기이므로, 이 감시면이 그 자리에 관문을 세웁니다.
+
+정직하게 적어 둘 한계가 하나 있습니다. 이 감시면은 **새로 실행하는 요청**(`run_workflow`)
+만 가립니다. 이미 돌았던 실행을 다시 돌리는 요청(`rerun_*`)은 실행 번호만 넘어오고 그것이
+어느 워크플로였는지 훅이 알 수 없어 판정하지 않습니다. 그 구멍은 훅이 아니라 **적용
+스크립트 쪽**에서 막습니다 — 이미 적용된 버전을 다시 적용하려 하면 스크립트가 거부합니다.
 
 ## 왜 "확인 요청"이 아니라 "차단"인가 — 이 환경에서 실측한 결과
 
@@ -192,18 +204,46 @@ MIGRATION_TOOL = "mcp__Supabase__apply_migration"
 LIVE_DB_WRITE_SCRIPTS = (
     ("apply-migration.sh", "마이그레이션을 라이브 데이터베이스에 적용하는 스크립트"),
     ("deploy-stack.sh", "스택을 다시 세우며 데이터베이스를 복원·교체할 수 있는 스크립트"),
+    ("ssm-sql.py", "aws CLI 없이 라이브 데이터베이스에 SQL 을 보내는 대체 경로"),
 )
 
 # 한 줄에 여러 명령이 붙어 있으면 토막마다 따로 본다.
 SEGMENT_SPLIT = re.compile(r"(?:\|\||&&|[;|\n])")
 
 # 명령 앞에 붙는 감싸개. 이것들을 벗긴 다음 자리가 실제로 실행되는 명령이다.
+#
+# 인터프리터(`python3` 등)도 감싸개로 본다. 그러지 않으면 `python3 selfhost/ssm-sql.py …`
+# 의 첫 자리가 `python3` 이라, 목록에 이름을 등재해도 걸리지 않는다(실측으로 확인했다).
+# 벗긴 다음 자리가 목록에 있을 때만 판정하므로, `python3 manage.py …` 처럼 목록에 없는
+# 파일을 부르는 명령에는 아무 영향이 없다. 다른 인터프리터로 부르는 통로가 생기면
+# (예: `node …`) 그때 여기에 함께 더한다.
 COMMAND_WRAPPERS = {
     "sh", "bash", "zsh", "dash", "sudo", "env", "time", "nohup", "exec", "xargs",
+    "python", "python3",
 }
 
 BASH_TOOL = "Bash"
-WATCHED_TOOLS = (SQL_TOOL, MIGRATION_TOOL, BASH_TOOL)
+
+# 네 번째 감시면 — 저장소의 자동 작업(GitHub Actions 워크플로)으로 옮겨 간 적용 통로.
+#
+# ## 왜 필요한가
+#
+# 원격 세션(claude.ai/code)에는 클라우드 접속 자격이 없어서 적용 스크립트를 직접 실행할 수
+# 없다. 그래서 적용을 저장소의 워크플로로 옮기고 세션은 그것을 "돌려 달라"고 부르게 된다.
+# 그 순간 셸 감시면은 아무것도 보지 못한다 — 세션이 실행하는 명령이 없기 때문이다.
+# **부르는 행위 자체가 라이브 쓰기**이므로 그 자리에 관문을 세운다.
+#
+# ## 무엇을 라이브 쓰기로 보나 — 목록에 적힌 워크플로 파일만
+#
+# 빌드·검사·배포 워크플로까지 막으면 관계없는 작업이 멈춘다(셸 감시면과 같은 이유다).
+# 그래서 데이터베이스를 바꾸는 워크플로만 이름으로 적어 둔다. 새 통로를 만들면서 여기에
+# 등재하지 않으면, 이 감시면이 태어난 그 상태(관문 없는 통로)로 되돌아간다.
+ACTIONS_TOOL = "mcp__github__actions_run_trigger"
+LIVE_DB_WRITE_WORKFLOWS = (
+    ("db-migration-apply.yml", "마이그레이션을 라이브 데이터베이스에 적용하는 워크플로"),
+)
+
+WATCHED_TOOLS = (SQL_TOOL, MIGRATION_TOOL, BASH_TOOL, ACTIONS_TOOL)
 
 
 def unlock_path() -> str:
@@ -228,6 +268,11 @@ def call_fingerprint(payload: dict) -> str:
         # 셸 명령도 지문에 넣는다. 넣지 않으면 모든 Bash 호출의 지문이 같아져,
         # 한 번 승인한 명령의 영수증으로 **다른 명령**이 통과할 수 있다.
         str(ti.get("command") or ""),
+        # 워크플로 실행 요청도 같은 이유로 넣는다. 어느 워크플로를, 어느 브랜치에서,
+        # 어떤 입력으로 돌리는지가 모두 달라지면 다른 승인이어야 한다.
+        str(ti.get("workflow_id") or ""),
+        str(ti.get("ref") or ""),
+        json.dumps(ti.get("inputs") or {}, sort_keys=True, ensure_ascii=False),
     ])
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
@@ -437,6 +482,54 @@ def bash_live_db_write(command: str):
     return None, None
 
 
+def actions_live_db_write(tool_input: dict):
+    """GitHub Actions 실행 요청이 라이브 데이터베이스를 바꾸는 워크플로를 **새로 돌리는가**.
+
+    돌려주는 값은 `(설명, sql 인자)` 이고, 해당 없으면 `(None, None)` 이다.
+
+    ## 무엇을 보고 가르나
+
+    두 가지가 모두 맞아야 라이브 쓰기로 본다. 첫째, 요청이 **새 실행**(`run_workflow`)이어야
+    한다. 둘째, 부르려는 워크플로 파일 이름이 `LIVE_DB_WRITE_WORKFLOWS` 에 있어야 한다.
+    워크플로를 번호(숫자 id)로 부르는 것도 가능한데, 번호만으로는 어느 파일인지 알 수 없으므로
+    가리지 못한다 — 그 한계는 파일 상단에 적어 두었고 적용 스크립트의 중복 적용 거부가 받친다.
+    """
+    if (tool_input or {}).get("method") != "run_workflow":
+        return None, None
+
+    workflow = os.path.basename(str(tool_input.get("workflow_id") or "").strip().strip("\"'"))
+    for name, label in LIVE_DB_WRITE_WORKFLOWS:
+        if workflow == name:
+            inputs = tool_input.get("inputs") or {}
+            sql_arg = next(
+                (str(v) for v in inputs.values() if str(v).endswith(".sql")),
+                None,
+            )
+            return label, sql_arg
+    return None, None
+
+
+def push_gate(label: str, sql_arg):
+    """적용 전 push 판정 — 셸 통로와 워크플로 통로가 **같은 순서, 같은 문구**를 쓰게 한다.
+
+    돌려주는 값은 `(설명, 차단 사유)` 이고, 차단 사유가 채워져 있으면 그 자리에서 막아야
+    한다. 넘긴 인자가 마이그레이션 파일이 아닐 때는 잴 것이 없으므로 그대로 통과시킨다
+    (그래도 뒤의 열쇠 판정은 남아 있다).
+    """
+    if not sql_arg:
+        return label, None
+
+    name = os.path.basename(sql_arg)
+    if name.endswith(".sql"):
+        name = name[: -len(".sql")]
+    state, detail = migration_push_state(name)
+    if state == "unpushed":
+        return label, push_denied_reason(detail)
+    if state == "unknown":
+        return f"{label} (참고: 적용 전 push 여부를 재지 못했습니다 — {detail})", None
+    return label, None
+
+
 def push_denied_reason(detail: str) -> str:
     """적용 전 push 판정에 걸렸을 때의 설명. 커넥터 통로와 셸 통로가 같은 문구를 쓴다."""
     return (
@@ -516,18 +609,28 @@ def main() -> int:
         # 커넥터 통로와 같은 순서를 지킨다 — 적용 전 push 판정이 열쇠보다 앞이다.
         # 스크립트 자신도 같은 확인을 하지만, 훅에도 두어 스크립트가 바뀌어도 이 순서가
         # 남게 한다. 넘긴 인자가 마이그레이션 파일일 때만 판정한다.
-        if sql_arg:
-            name = os.path.basename(sql_arg)
-            if name.endswith(".sql"):
-                name = name[: -len(".sql")]
-            state, detail = migration_push_state(name)
-            if state == "unpushed":
-                emit("deny", push_denied_reason(detail))
-                return 0
-            if state == "unknown":
-                label = f"{label} (참고: 적용 전 push 여부를 재지 못했습니다 — {detail})"
+        label, deny_reason = push_gate(label, sql_arg)
+        if deny_reason:
+            emit("deny", deny_reason)
+            return 0
 
         reason = f"셸로 라이브 데이터베이스를 바꾸는 명령입니다 — {label}"
+    elif tool == ACTIONS_TOOL:
+        label, sql_arg = actions_live_db_write(payload.get("tool_input") or {})
+        if not label:
+            # 라이브 데이터베이스를 바꾸는 워크플로가 아니다 — 빌드·검사·배포를 부르는
+            # 요청은 그대로 지나가야 하므로 아무 판정도 내지 않는다.
+            return 0
+
+        label, deny_reason = push_gate(label, sql_arg)
+        if deny_reason:
+            emit("deny", deny_reason)
+            return 0
+
+        reason = (
+            "라이브 데이터베이스를 바꾸는 워크플로를 실행하려는 요청입니다"
+            f" — {label}"
+        )
     elif tool == MIGRATION_TOOL:
         # 열쇠보다 **앞에** 두는 판정. 열쇠는 "사용자가 이 SQL 을 승인했다"를 뜻하는데,
         # push 여부는 승인으로 대체될 수 없다 — push 하지 않고 적용하면 다음 세션이 그

@@ -305,12 +305,24 @@ def check_bash_gate() -> int:
         print(f"  [실패] 셸 마이그레이션 적용이 push 판정에 걸리지 않았다: {out!r}")
         failures += 1
 
+    # ①-2 인터프리터로 부르는 통로도 같은 판정을 받아야 한다. 첫 자리가 `python3` 이라
+    #     감싸개를 벗기지 않으면 목록에 이름을 등재해도 걸리지 않는다(2026-09-09 실측).
+    out = run_hook({
+        "tool_name": "Bash",
+        "tool_input": {"command": "python3 selfhost/ssm-sql.py apply supabase/migrations/29990101000000_nope.sql"},
+    })
+    if decision_of(out) != "deny" or "적용 전 push 판정" not in reason_of(out):
+        print(f"  [실패] 인터프리터로 부른 라이브 SQL 경로가 push 판정에 걸리지 않았다: {out!r}")
+        failures += 1
+
     # ② 인자가 없어도(또는 마이그레이션 파일이 아니어도) 열쇠 없이는 막혀야 한다.
     for command in (
         "sh selfhost/apply-migration.sh",
         "sh selfhost/deploy-stack.sh --restore-force",
         "cd /home/user/Fitstack && sh selfhost/deploy-stack.sh",
         'bash -c "sh selfhost/apply-migration.sh"',
+        "python3 selfhost/ssm-sql.py apply",
+        "./selfhost/ssm-sql.py query",
     ):
         out = run_hook({"tool_name": "Bash", "tool_input": {"command": command}})
         if decision_of(out) != "deny":
@@ -326,6 +338,12 @@ def check_bash_gate() -> int:
         "sed -n 1,40p selfhost/deploy-stack.sh",
         "git status --porcelain",
         "cd app && pnpm test",
+        # 인터프리터를 감싸개로 본 뒤에도, 목록에 없는 파일을 부르는 명령은 그대로 통과해야
+        # 한다. 여기서 판정이 나오면 파이썬을 쓰는 모든 작업이 멈춘다.
+        "python3 .claude/hooks/sql-write-guard.test.py",
+        "python3 scripts/migration-object-probe.mjs --emit-sql",
+        'python3 -c "print(1)"',
+        "cat selfhost/ssm-sql.py",
     ):
         out = run_hook({"tool_name": "Bash", "tool_input": {"command": command}})
         if out:
@@ -369,9 +387,93 @@ def check_bash_gate() -> int:
     return failures
 
 
+def check_actions_gate() -> int:
+    """워크플로 감시면 — 적용을 저장소의 자동 작업으로 옮겨도 관문이 따라오는지.
+
+    셸 감시면과 같은 두 방향을 본다. 라이브 데이터베이스를 바꾸는 워크플로를 부르는 요청은
+    반드시 걸려야 하고, 빌드·검사·배포 워크플로를 부르는 요청에는 아무 판정도 없어야 한다.
+    """
+    failures = 0
+    repo = {"owner": "fitogether-org", "repo": "Fitstack"}
+
+    # ① 적용 워크플로 + 저장소에 없는 파일 → push 판정에 먼저 걸린다(열쇠보다 앞).
+    out = run_hook({
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": dict(repo, method="run_workflow", workflow_id="db-migration-apply.yml",
+                           ref="main",
+                           inputs={"file": "supabase/migrations/29990101000000_nope.sql",
+                                   "confirm": "APPLY"}),
+    })
+    if decision_of(out) != "deny" or "적용 전 push 판정" not in reason_of(out):
+        print(f"  [실패] 워크플로로 부른 마이그레이션 적용이 push 판정에 걸리지 않았다: {out!r}")
+        failures += 1
+
+    # ② 파일 입력이 없어도 열쇠 없이는 막혀야 한다 — 부르는 행위 자체가 라이브 쓰기다.
+    out = run_hook({
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": dict(repo, method="run_workflow",
+                           workflow_id=".github/workflows/db-migration-apply.yml", ref="main"),
+    })
+    if decision_of(out) != "deny":
+        print(f"  [실패] 적용 워크플로 실행 요청이 막히지 않았다: {out!r}")
+        failures += 1
+
+    # ③ 막으면 안 되는 것 — 다른 워크플로, 그리고 새 실행이 아닌 요청.
+    #    여기서 판정이 나오면 그것이 곧 오탐이고, 관계없는 작업이 멈춘다.
+    for tool_input in (
+        dict(repo, method="run_workflow", workflow_id="ci.yml", ref="main"),
+        dict(repo, method="run_workflow", workflow_id="deploy-aws.yml", ref="main"),
+        dict(repo, method="run_workflow", workflow_id="branch-cleanup.yml", ref="main"),
+        dict(repo, method="cancel_workflow_run", run_id=12345),
+        dict(repo, method="rerun_failed_jobs", run_id=12345),
+    ):
+        out = run_hook({"tool_name": "mcp__github__actions_run_trigger", "tool_input": tool_input})
+        if out:
+            print(f"  [실패] 관계없는 워크플로 요청에 판정이 나왔다(오탐): {tool_input!r} -> {out!r}")
+            failures += 1
+
+    # ④ 열쇠는 이 통로에서도 통하고, 그 승인이 **다른 워크플로로 번지지 않는다.**
+    key = pathlib.Path(guard.unlock_path())
+    receipt = pathlib.Path(guard.receipt_path())
+    if key.exists():
+        print("  [건너뜀] 열쇠 파일이 이미 있어 ④ 는 돌리지 않는다")
+    else:
+        approved = dict(repo, method="run_workflow", workflow_id="db-migration-apply.yml",
+                        ref="main", inputs={"confirm": "APPLY"})
+        key.write_text("시험용 열쇠\n")
+        try:
+            out = run_hook({"tool_name": "mcp__github__actions_run_trigger", "tool_input": approved})
+            if decision_of(out) != "allow":
+                print(f"  [실패] 열쇠가 있는데 워크플로 통로가 막혔다: {out!r}")
+                failures += 1
+
+            out = run_hook({"tool_name": "mcp__github__actions_run_trigger", "tool_input": approved})
+            if decision_of(out) != "allow":
+                print(f"  [실패] 같은 요청의 재판정이 영수증으로 통과하지 못했다: {out!r}")
+                failures += 1
+
+            # 입력이 다르면 다른 승인이어야 한다 — 지문에 워크플로·브랜치·입력을 넣은 이유다.
+            out = run_hook({
+                "tool_name": "mcp__github__actions_run_trigger",
+                "tool_input": dict(repo, method="run_workflow",
+                                   workflow_id="db-migration-apply.yml", ref="main",
+                                   inputs={"confirm": "APPLY", "file": "supabase/migrations/other.sql"}),
+            })
+            if decision_of(out) != "deny":
+                print(f"  [실패] 승인받지 않은 다른 실행 요청이 영수증을 빌려 썼다: {out!r}")
+                failures += 1
+        finally:
+            if key.exists():
+                key.unlink()
+            if receipt.exists():
+                receipt.unlink()
+
+    return failures
+
+
 if __name__ == "__main__":
     total = (check_classify() + check_hook_output() + check_unlock()
-             + check_push_gate() + check_bash_gate())
+             + check_push_gate() + check_bash_gate() + check_actions_gate())
     if total:
         print(f"\n실패 {total}건")
         sys.exit(1)
@@ -380,4 +482,5 @@ if __name__ == "__main__":
           f"마이그레이션은 내용과 무관하게 차단되고, "
           f"열쇠는 같은 지문의 재판정만 통과시켰고 다른 쿼리·만료 영수증은 막았으며, "
           f"push 되지 않은 마이그레이션은 열쇠로도 넘어가지 못했으며, "
-          f"셸로 라이브 데이터베이스를 바꾸는 명령은 막히고 평범한 셸 명령은 그대로 통과했습니다.")
+          f"셸로 라이브 데이터베이스를 바꾸는 명령은 막히고 평범한 셸 명령은 그대로 통과했으며, "
+          f"라이브 데이터베이스를 바꾸는 워크플로 실행 요청은 막히고 다른 워크플로 요청은 그대로 통과했습니다.")
