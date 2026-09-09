@@ -60,6 +60,7 @@ DEFAULT_THRESHOLDS = {
     "delayRiskDays": 30,   # 계획보다 이 일수 이상 늦으면 '위험', 1일 이상이면 '주의'
     "recentDays": 7,       # "최근"의 정의 — 오늘로부터 뒤로 며칠
     "laneMaxCards": 3,     # 관심사 열에 처음부터 펼쳐 두는 카드 수. 나머지는 버튼으로 펼친다.
+    "staleDays": 14,       # 사실 기준일이 이 일수보다 오래되면 화면이 스스로 낡음을 경고한다
 }
 
 SEV_ORDER = {"risk": 0, "warn": 1, "ok": 2, "info": 3}   # 급한 것이 위로
@@ -110,6 +111,13 @@ TEXT = {
     "verdictWhyWarn": "‘{title}’이(가) 걸려 있다{more} — {reading}. 막지는 않지만 결정이 밀려 있다",
     "verdictWhyMore": " (그 외 {rest}건)",
     "countUnit": "건", "laneOk": "이상 없음",
+    # 이야기 세 칸의 이름표
+    "storyHappened": "무슨 일이 있었나", "storyProblem": "그래서 무엇이 문제인가",
+    "storyDecide": "오늘 답할 것",
+    # 두 겹 링크의 이름 — 해석본이 먼저, 원본은 그다음이다.
+    "briefLabel": "이게 무슨 뜻인가", "srcLabel": "원본 보기",
+    # 낡음 경고 — 화면이 '보는 시점'에 계산해 채운다
+    "staleWarn": "이 판의 사실은 {at} 기준입니다 — 오늘로 {days}일 전. 그 뒤에 바뀐 것은 여기 없습니다.",
     "laneMore": "그 외 {n}건 펼치기", "laneLess": "접기",
     "meanLabel": "뜻", "whyLabel": "걸리면",
     # 밴드 2
@@ -151,6 +159,7 @@ TEXT = {
 # 문구 키마다 쓸 수 있는 자리표시자. 여기 없는 이름을 쓰면 검증에서 거부한다
 # (오타 {count} 같은 것이 화면에 그대로 찍히는 일을 막는다).
 PLACEHOLDERS = {
+    "staleWarn": {"at", "days"},
     "laneMore": {"n"}, "areaBadgeConflict": {"n"}, "areaBadgeWaiting": {"n"},
     "areaCount": {"n"}, "areaCountUndated": {"n", "u"}, "undatedCount": {"n"},
     "axisOffBefore": {"n"}, "axisOffAfter": {"n"},
@@ -389,6 +398,36 @@ def _keyed(v, path, items, required, optional, keyfield="key", strings=()):
     return out
 
 
+def _check_url(v, path, value, why=""):
+    """링크 칸을 검사한다. 사람이 눌러서 실제로 갈 수 있는 주소만 받는다.
+
+    이 판의 링크는 두 겹이다. 한 겹으로 두었더니 실패했기 때문이다 — 판정에서
+    곧장 원본(요청·SQL 파일·워크플로 설정)으로 떨어지면, 판단해야 하는 사람이
+    그 원본을 해독해야 한다. 그것은 이 체계가 없애려는 바로 그 부담이다.
+
+      url        해석본. 그 판정이 무슨 뜻이고 무엇을 정해야 하는지 경영 언어로
+                 쓴 브리프. 결정이 필요한 카드에는 필수다.
+      sourceUrl  원본. 해석본을 읽고 더 파고들 사람만 쓴다. 선택이다.
+
+    빈 문자열이나 '#' 같은 자리표시는 거절한다 — 링크가 있는 것처럼 보이지만
+    눌러도 아무 데도 가지 않는다.
+    """
+    if not isinstance(value, str) or not value.strip():
+        v.err(path, "링크는 비어 있을 수 없습니다", why or "누르면 갈 곳이 있어야 링크입니다")
+        return False
+    u = value.strip()
+    if u == "#" or u.startswith("#"):
+        v.err(path, f"자리표시는 링크가 아닙니다: {value!r}",
+              "눌러도 같은 화면에 머물러, 링크가 있다고 착각하게 만듭니다")
+        return False
+    if not (u.startswith("https://") or u.startswith("http://")
+            or u.startswith("/") or u.startswith("./")):
+        v.err(path, f"링크 주소의 형식을 알 수 없습니다: {value!r}",
+              "https:// 로 시작하는 주소이거나 저장소 안의 경로여야 합니다")
+        return False
+    return True
+
+
 def _check_text_value(v, path, key, value):
     """문구 하나를 검증한다 — 자리표시자가 규격에 맞는가, 강조 표시를 넣지 않았는가."""
     allowed = PLACEHOLDERS.get(key, set())
@@ -491,8 +530,10 @@ def validate_config(v, cfg):
 
     lanes = checks = assets = areas = statuses = {}
     if v.lst("config.lanes", cfg.get("lanes"), 1):
-        lanes = _keyed(v, "config.lanes", cfg["lanes"], ("key", "label"), ("en",),
-                       strings=("label", "en"))
+        # mean = 이 열이 무엇을 재는지 한 줄 설명. 열 제목만으로는 「기준·정합·진척」이
+        # 무슨 뜻이고 서로 무슨 관계인지 읽는 사람이 복원해야 했다.
+        lanes = _keyed(v, "config.lanes", cfg["lanes"], ("key", "label"), ("en", "mean"),
+                       strings=("label", "en", "mean"))
     if v.lst("config.areas", cfg.get("areas"), 1):
         areas = _keyed(v, "config.areas", cfg["areas"], ("key", "label"), ("en",),
                        strings=("label", "en"))
@@ -502,8 +543,11 @@ def validate_config(v, cfg):
         for k, st in statuses.items():
             v.enum(f"config.statuses[{k}].tone", st.get("tone"), TONES, "색 이름")
     if "assets" in cfg and v.lst("config.assets", cfg["assets"]):
-        assets = _keyed(v, "config.assets", cfg["assets"], ("key", "label", "plain"), ("why",),
-                        strings=("label", "plain", "why"))
+        assets = _keyed(v, "config.assets", cfg["assets"], ("key", "label", "plain"),
+                        ("why", "url"), strings=("label", "plain", "why"))
+        for k, a in assets.items():
+            if "url" in a:
+                _check_url(v, f"config.assets[{k}].url", a["url"])
     if "checks" in cfg and v.lst("config.checks", cfg["checks"]):
         # 이름 칸은 다른 항목(lanes·areas·statuses·assets)과 같은 `label`로 통일한다.
         # 예전 파일이 쓰던 `name`도 계속 받는다 — 둘 중 하나만 있으면 된다.
@@ -516,8 +560,11 @@ def validate_config(v, cfg):
                 v.err(f"config.checks[{i}].label", "필수 항목이 빠졌습니다",
                       "검사 이름을 적는 칸입니다 (예전 이름 `name`도 받습니다)")
                 it["name"] = ""
-        checks = _keyed(v, "config.checks", cfg["checks"], ("key", "name", "plain"), ("why", "label"),
-                        strings=("name", "plain", "why", "label"))
+        checks = _keyed(v, "config.checks", cfg["checks"], ("key", "name", "plain"),
+                        ("why", "label", "url"), strings=("name", "plain", "why", "label"))
+        for k, c in checks.items():
+            if "url" in c:
+                _check_url(v, f"config.checks[{k}].url", c["url"])
 
     drift = cfg.get("drift")
     if drift is not None:
@@ -535,13 +582,30 @@ def validate_config(v, cfg):
     if v.lst("config.cards", cfg.get("cards"), 1):
         cards = _keyed(v, "config.cards", cfg["cards"],
                        ("key", "lane", "title", "plain", "metric"),
-                       ("why", "decide", "traceChecks"),
+                       ("why", "decide", "traceChecks", "url", "sourceUrl"),
                        strings=("title", "plain", "why"))
         for k, card in cards.items():
             p = f"config.cards[{k}]"
             v.ref(f"{p}.lane", card.get("lane"), set(lanes), "관심사 열(lane)")
             if "decide" in card:
                 v.flag(f"{p}.decide", card["decide"])
+            if "sourceUrl" in card:
+                _check_url(v, f"{p}.sourceUrl", card["sourceUrl"])
+            if "url" in card:
+                _check_url(v, f"{p}.url", card["url"])
+            # 사람이 정해 주기 전에는 못 가는 카드에는 **해석본** 링크가 반드시
+            # 있어야 한다. 이것이 이 개정의 핵심 강제다 — 문서로 "링크를 다세요"라고
+            # 적어 두면 다음 회차가 그냥 빠뜨린다. 그래서 렌더 거부로 만든다.
+            #
+            # 원본(sourceUrl)으로는 이 요구를 대신할 수 없다. 판정에서 곧장 원본으로
+            # 떨어지면 판단해야 하는 사람이 그 원본을 해독해야 하고, 그 부담이 바로
+            # 이 판이 없애려는 것이기 때문이다.
+            elif card.get("decide") is True:
+                v.err(f"{p}.url",
+                      "결정이 필요한 카드에는 해석본 링크(url)가 있어야 합니다",
+                      "이 카드는 사람이 판단해야 합니다. 원본(요청·SQL·설정)이 아니라 "
+                      "'무엇이 걸려 있고 무엇을 정해야 하나'를 경영 언어로 쓴 브리프로 "
+                      "가는 링크를 적으세요. 원본은 sourceUrl 에 따로 답니다")
             if "traceChecks" in card:
                 got = v.strlist(f"{p}.traceChecks", card["traceChecks"])
                 for i, ck in enumerate(got or []):
@@ -610,14 +674,26 @@ def _validate_metric(v, path, metric, assets, checks, areas, statuses, drift):
 
 WORK_REQUIRED = ("id", "title", "area", "team", "status")
 WORK_OPTIONAL = ("block", "touches", "fixes", "planStart", "planEnd", "progress", "eta",
-                 "completedAt", "deps", "stalledDays", "drift")
+                 "completedAt", "deps", "stalledDays", "drift", "url")
 
 
 def validate_data(v, data, C):
     """data를 검증한다. config(C)에 선언되지 않은 것을 참조하면 오류."""
-    if not v.obj("data", data, required=("today", "works"),
+    if not v.obj("data", data, required=("today", "works", "story"),
                  optional=("updated", "target", "violations", "checkRuns", "drift")):
         return None
+
+    # ── 이번 회차의 이야기 ───────────────────────────────────────
+    # 이 판은 숫자가 오염되는 것을 막으려고 자유 서술 칸을 두지 않는다(절대 규칙).
+    # 그 결과 "무슨 일이 있었고 그래서 무엇이 문제인가"를 말할 자리가 없어, 읽는 사람이
+    # 판정 색과 건수만 보고 맥락을 스스로 복원해야 했다. story 는 그 자리를 정확히 세 칸으로
+    # 열되 자유 서술이 숫자로 새지 않게 가둔 것이다 — 판정·건수는 여전히 엔진이 계산한다.
+    story = data.get("story")
+    if v.obj("data.story", story, required=("happened", "problem", "decide")):
+        for k, why in (("happened", "이번 회차에 실제로 무슨 일이 있었나"),
+                       ("problem", "그래서 지금 무엇이 문제인가"),
+                       ("decide", "그래서 오늘 답해야 할 것은 무엇인가")):
+            v.text(f"data.story.{k}", story.get(k), allow_empty=False)
 
     if "today" in data:
         v.day("data.today", data["today"])
@@ -662,6 +738,8 @@ def validate_data(v, data, C):
                 v.whole(f"{p}.stalledDays", w["stalledDays"], 0, 3650)
             if "drift" in w:
                 v.flag(f"{p}.drift", w["drift"])
+            if "url" in w:
+                _check_url(v, f"{p}.url", w["url"])
             if "deps" in w:
                 v.strlist(f"{p}.deps", w["deps"])
 
@@ -734,6 +812,7 @@ def validate_data(v, data, C):
                   "data에 drift: {gaps, pivots} 를 넣으세요")
 
     return {"today": data.get("today"), "updated": data.get("updated"),
+            "story": story if isinstance(story, dict) else {},
             "target": target, "works": works, "violations": violations,
             "checkRuns": runs, "drift": drift,
             "workOrder": _order(data.get("works"), "id", works)}
@@ -840,6 +919,7 @@ def compute(C, D):
         dated = "planStart" in w and "planEnd" in w
         wm[wid] = {
             "id": wid, "title": w["title"], "team": w["team"], "status": w["status"],
+            "url": w.get("url", ""),
             "area": w["area"], "areaLabel": C["areas"][w["area"]]["label"],
             "block": w.get("block", ""), "touches": _touch_list(w), "fixes": _fix_list(w),
             "progress": w.get("progress", 0),
@@ -913,6 +993,7 @@ def compute(C, D):
         else:
             sev, badge = "ok", T["assetBadgeOk"]
         assets.append({"key": key, "label": a["label"], "plain": a["plain"],
+                       "url": a.get("url", ""),
                        "why": a.get("why", ""), "sev": sev, "badge": badge,
                        "links": linked, "teams": teams, "denom": denom, "denomLabel": denom_label,
                        "conflictTeams": c_teams, "waitTeams": w_teams})
@@ -966,6 +1047,7 @@ def compute(C, D):
                      "none": T["fixNone"], "unknown": T["fixUnknown"]}.get(fix_state, "")
         checks.append({
             "key": key, "name": c["name"], "plain": c["plain"], "why": c.get("why", ""),
+            "url": c.get("url", ""),
             "status": status, "statusLabel": status_label[status],
             "reported": status not in GREY_CHECK_STATES,
             # 이 위반을 해소하는 작업(data.works[].fixes가 이 검사를 가리킨 것).
@@ -996,6 +1078,8 @@ def compute(C, D):
                 trace["checks"].append(ck)
         cards[key] = {"id": key, "lane": card["lane"], "title": card["title"],
                       "plain": card["plain"], "why": card.get("why", ""),
+                      "url": card.get("url", ""),
+                      "sourceUrl": card.get("sourceUrl", ""),
                       "severity": sev, "reading": reading,
                       # '결정 필요'는 실제로 걸려 있을 때만 붙인다. 늘 붙어 있으면 신호가 죽는다.
                       "decide": bool(card.get("decide")) and sev in ("risk", "warn")}
@@ -1010,6 +1094,7 @@ def compute(C, D):
         rest = len(mine) - shown
         # 접힌 카드도 payload에 담는다. 화면에서 셀 수 있는 것은 화면에서 열 수도 있어야 한다.
         lanes.append({"key": lkey, "label": lane["label"], "en": lane.get("en", ""),
+                      "mean": lane.get("mean", ""),
                       "count": len(mine), "cards": mine, "shown": shown,
                       "moreText": _sub(T["laneMore"], {"n": rest}) if rest else "",
                       "lessText": T["laneLess"]})
@@ -1085,6 +1170,12 @@ def compute(C, D):
 
     return {
         "updated": D["updated"] or D["today"],
+        # 이야기 세 칸. 판정 위에 그려, 읽는 사람이 색과 건수를 보기 전에 맥락을 먼저 읽는다.
+        "story": D.get("story") or {},
+        # 사실을 수집한 날짜. 화면이 이 날짜와 '보는 날'을 비교해 낡음을 스스로 경고한다.
+        # 엔진이 아니라 화면이 재는 이유: 북마크로 몇 달 뒤에 여는 사람에게 필요한 것은
+        # "만들어질 때 며칠 됐나"가 아니라 "지금 보는 시점에 며칠 됐나"이기 때문이다.
+        "factsAt": D["today"],
         "byId": wm, "columns": columns, "rollup": rollup, "undated": undated_ids,
         "undatedCntText": _sub(T["undatedCount"], {"n": len(undated_ids)}),
         "assets": assets, "checks": checks, "lanes": lanes, "traces": traces,
@@ -1255,6 +1346,8 @@ def render(C, D):
                        "linkLabel": C["drift"].get("linkLabel", ""),
                        "href": C["drift"].get("href", "#")} if C["drift"] else None),
             "honesty": C["honesty"],
+            # 화면이 낡음을 스스로 재려면 경계값이 필요하다.
+            "staleDays": C["thresholds"]["staleDays"],
         },
         "text": C["text"],
         "axis": axis,
@@ -1305,13 +1398,23 @@ def starter_data(today=None):
 
     return {
         "today": t.isoformat(),
+        # 이야기 세 칸은 필수다 — 이 판은 숫자만 담고 맥락을 담지 못하므로, 그 자리를
+        # 여기서 연다. 처음 여는 사람이 무엇을 쓰는 칸인지 알 수 있게 예문을 넣어 둔다.
+        "story": {
+            "happened": "두 팀이 같은 공용 컴포넌트를 각자 고쳤고, 두 변경이 같은 주에 검토에 올라왔다.",
+            "problem": "각 팀의 검사는 통과하는데 합치면 버튼이 서로 다르게 보인다 — "
+                       "공용 자산 하나를 두 판으로 보고 있다.",
+            "decide": "어느 쪽을 정본으로 삼을지 정해야 한다. 정하기 전에는 두 변경 다 반영할 수 없다.",
+        },
         "works": [
             # 두 팀이 같은 공용 컴포넌트를 서로 다르게 고쳤다 → '조화' 카드가 켜진다
             {"id": "W-1", "title": "목록 화면 버튼 정리", "area": "screen", "team": "앱팀",
              "status": "review", "block": "conflict", "touches": ["component"],
+             "url": "https://github.com/OWNER/REPO/pull/1",
              "planStart": d(-12), "planEnd": d(2), "progress": 80, "eta": d(9)},
             {"id": "W-2", "title": "설정 화면 버튼 정리", "area": "screen", "team": "서버팀",
              "status": "review", "block": "conflict", "touches": ["component"],
+             "url": "https://github.com/OWNER/REPO/pull/2",
              "planStart": d(-9), "planEnd": d(5), "progress": 60},
             # 데이터 규격을 두 팀이 함께 건드리지만 아직 충돌은 아니다
             {"id": "W-3", "title": "주문 응답에 배송 상태 추가", "area": "server", "team": "서버팀",
