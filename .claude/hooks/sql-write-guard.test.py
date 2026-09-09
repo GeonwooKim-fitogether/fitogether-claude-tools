@@ -305,12 +305,24 @@ def check_bash_gate() -> int:
         print(f"  [실패] 셸 마이그레이션 적용이 push 판정에 걸리지 않았다: {out!r}")
         failures += 1
 
+    # ①-2 인터프리터로 부르는 통로도 같은 판정을 받아야 한다. 첫 자리가 `python3` 이라
+    #     감싸개를 벗기지 않으면 목록에 이름을 등재해도 걸리지 않는다(2026-09-09 실측).
+    out = run_hook({
+        "tool_name": "Bash",
+        "tool_input": {"command": "python3 selfhost/ssm-sql.py apply supabase/migrations/29990101000000_nope.sql"},
+    })
+    if decision_of(out) != "deny" or "적용 전 push 판정" not in reason_of(out):
+        print(f"  [실패] 인터프리터로 부른 라이브 SQL 경로가 push 판정에 걸리지 않았다: {out!r}")
+        failures += 1
+
     # ② 인자가 없어도(또는 마이그레이션 파일이 아니어도) 열쇠 없이는 막혀야 한다.
     for command in (
         "sh selfhost/apply-migration.sh",
         "sh selfhost/deploy-stack.sh --restore-force",
         "cd /home/user/Fitstack && sh selfhost/deploy-stack.sh",
         'bash -c "sh selfhost/apply-migration.sh"',
+        "python3 selfhost/ssm-sql.py apply",
+        "./selfhost/ssm-sql.py query",
     ):
         out = run_hook({"tool_name": "Bash", "tool_input": {"command": command}})
         if decision_of(out) != "deny":
@@ -326,6 +338,12 @@ def check_bash_gate() -> int:
         "sed -n 1,40p selfhost/deploy-stack.sh",
         "git status --porcelain",
         "cd app && pnpm test",
+        # 인터프리터를 감싸개로 본 뒤에도, 목록에 없는 파일을 부르는 명령은 그대로 통과해야
+        # 한다. 여기서 판정이 나오면 파이썬을 쓰는 모든 작업이 멈춘다.
+        "python3 .claude/hooks/sql-write-guard.test.py",
+        "python3 scripts/migration-object-probe.mjs --emit-sql",
+        'python3 -c "print(1)"',
+        "cat selfhost/ssm-sql.py",
     ):
         out = run_hook({"tool_name": "Bash", "tool_input": {"command": command}})
         if out:

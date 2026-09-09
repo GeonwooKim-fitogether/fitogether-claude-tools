@@ -204,14 +204,22 @@ MIGRATION_TOOL = "mcp__Supabase__apply_migration"
 LIVE_DB_WRITE_SCRIPTS = (
     ("apply-migration.sh", "마이그레이션을 라이브 데이터베이스에 적용하는 스크립트"),
     ("deploy-stack.sh", "스택을 다시 세우며 데이터베이스를 복원·교체할 수 있는 스크립트"),
+    ("ssm-sql.py", "aws CLI 없이 라이브 데이터베이스에 SQL 을 보내는 대체 경로"),
 )
 
 # 한 줄에 여러 명령이 붙어 있으면 토막마다 따로 본다.
 SEGMENT_SPLIT = re.compile(r"(?:\|\||&&|[;|\n])")
 
 # 명령 앞에 붙는 감싸개. 이것들을 벗긴 다음 자리가 실제로 실행되는 명령이다.
+#
+# 인터프리터(`python3` 등)도 감싸개로 본다. 그러지 않으면 `python3 selfhost/ssm-sql.py …`
+# 의 첫 자리가 `python3` 이라, 목록에 이름을 등재해도 걸리지 않는다(실측으로 확인했다).
+# 벗긴 다음 자리가 목록에 있을 때만 판정하므로, `python3 manage.py …` 처럼 목록에 없는
+# 파일을 부르는 명령에는 아무 영향이 없다. 다른 인터프리터로 부르는 통로가 생기면
+# (예: `node …`) 그때 여기에 함께 더한다.
 COMMAND_WRAPPERS = {
     "sh", "bash", "zsh", "dash", "sudo", "env", "time", "nohup", "exec", "xargs",
+    "python", "python3",
 }
 
 BASH_TOOL = "Bash"
